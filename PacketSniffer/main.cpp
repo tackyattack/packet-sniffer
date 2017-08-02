@@ -7,9 +7,13 @@
 //
 
 #include <iostream>
+#include "packet_sniffer.h"
 
 int main(int argc, const char * argv[]) {
     // insert code here...
     std::cout << "Hello, World!\n";
+    
+    start_sniffer();
+    
     return 0;
 }

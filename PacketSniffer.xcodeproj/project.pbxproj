@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		023925291F32218600230F04 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 023925281F32218600230F04 /* main.cpp */; };
+		023925301F32226700230F04 /* packet_sniffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0239252F1F32226700230F04 /* packet_sniffer.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,6 +26,8 @@
 /* Begin PBXFileReference section */
 		023925251F32218600230F04 /* PacketSniffer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = PacketSniffer; sourceTree = BUILT_PRODUCTS_DIR; };
 		023925281F32218600230F04 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		0239252F1F32226700230F04 /* packet_sniffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = packet_sniffer.cpp; sourceTree = "<group>"; };
+		023925311F32226F00230F04 /* packet_sniffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = packet_sniffer.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +61,8 @@
 			isa = PBXGroup;
 			children = (
 				023925281F32218600230F04 /* main.cpp */,
+				023925311F32226F00230F04 /* packet_sniffer.h */,
+				0239252F1F32226700230F04 /* packet_sniffer.cpp */,
 			);
 			path = PacketSniffer;
 			sourceTree = "<group>";
@@ -119,6 +124,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				023925291F32218600230F04 /* main.cpp in Sources */,
+				023925301F32226700230F04 /* packet_sniffer.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -207,6 +213,15 @@
 		0239252D1F32218600230F04 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/PacketSniffer/3rdparty/libpcap-1.8.1";
+				OTHER_LDFLAGS = (
+					"-L",
+					"$(PROJECT_DIR)/PacketSniffer/3rdparty/lib",
+					"-l",
+					pcap,
+					"-dylib_file",
+					"$(PROJECT_DIR)/PacketSniffer/3rdparty/lib/libpcap.dylib:$(PROJECT_DIR)/PacketSniffer/3rdparty/lib/libpcap.dylib",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -214,6 +229,15 @@
 		0239252E1F32218600230F04 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/PacketSniffer/3rdparty/libpcap-1.8.1";
+				OTHER_LDFLAGS = (
+					"-L",
+					"$(PROJECT_DIR)/PacketSniffer/3rdparty/lib",
+					"-l",
+					pcap,
+					"-dylib_file",
+					"$(PROJECT_DIR)/PacketSniffer/3rdparty/lib/libpcap.dylib:$(PROJECT_DIR)/PacketSniffer/3rdparty/lib/libpcap.dylib",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
