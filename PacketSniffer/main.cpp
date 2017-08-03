@@ -13,7 +13,8 @@ int main(int argc, const char * argv[]) {
     // insert code here...
     std::cout << "Hello, World!\n";
     
-    start_sniffer();
+    //start_sniffer();
+    start_monitor_sniffer();
     
     return 0;
 }

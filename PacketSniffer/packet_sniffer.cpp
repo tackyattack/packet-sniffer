@@ -35,9 +35,57 @@ int tcp=0,udp=0,icmp=0,others=0,igmp=0,total=0,i,j;
 #include<netinet/tcp.h>   //Provides declarations for tcp header
 #include<netinet/ip.h>    //Provides declarations for ip header
 
-void print_ip_header(const u_char *Buffer, int Size)
+
+void print_data(const u_char * data , int Size)
 {
-    cout << "enter" << endl;
+    
+    int i , j;
+    for(i=0 ; i < Size ; i++)
+    {
+        if( i!=0 && i%16==0)   //if one line of hex printing is complete...
+        {
+            printf("         ");
+            for(j=i-16 ; j<i ; j++)
+            {
+                if(data[j]>=32 && data[j]<=128)
+                    printf("%c",(unsigned char)data[j]); //if its a number or alphabet
+                
+                else printf("."); //otherwise print a dot
+            }
+            printf("\n");
+        }
+        
+        if(i%16==0) printf("   ");
+        printf(" %02X",(unsigned int)data[i]);
+        
+        if( i==Size-1)  //print the last spaces
+        {
+            for(j=0;j<15-i%16;j++)
+            {
+                printf("   "); //extra spaces
+            }
+            
+            printf("         ");
+            
+            for(j=i-i%16 ; j<=i ; j++)
+            {
+                if(data[j]>=32 && data[j]<=128)
+                {
+                    printf("%c",(unsigned char)data[j]);
+                }
+                else
+                {
+                    printf(".");
+                }
+            }
+            
+            printf( "\n" );
+        }
+    }
+}
+
+unsigned int print_ip(const u_char *Buffer, int Size)
+{
     
     struct ip *iph = (struct ip *)(Buffer  + sizeof(struct ether_header) );
     
@@ -47,53 +95,170 @@ void print_ip_header(const u_char *Buffer, int Size)
     memset(&dest, 0, sizeof(dest));
     dest.sin_addr.s_addr = iph->ip_dst.s_addr;
     
-    printf("\n");
-    printf("IP Header\n");
-    printf("   |-IP Version        : %d\n",(unsigned int)iph->ip_v);
-    printf("   |-Type Of Service   : %d\n",(unsigned int)iph->ip_tos);
-    printf("   |-IP Total Length   : %d  Bytes(Size of Packet)\n",ntohs(iph->ip_len));
-    printf("   |-Identification    : %d\n",ntohs(iph->ip_id));
-    printf("   |-TTL      : %d\n",(unsigned int)iph->ip_ttl);
-    printf("   |-Protocol : %d\n",(unsigned int)iph->ip_p);
-    printf("   |-Checksum : %d\n",ntohs(iph->ip_sum));
-    printf("   |-Source IP        : %s\n" , inet_ntoa(source.sin_addr) );
-    printf("   |-Destination IP   : %s\n" , inet_ntoa(dest.sin_addr) );
+    cout << "packet from: " << inet_ntoa(source.sin_addr) << " going to: " << inet_ntoa(dest.sin_addr) << endl;
+    
+    return 0;
+    
+    if(strstr(inet_ntoa(source.sin_addr),"192.168.2.96") != NULL ||  strstr(inet_ntoa(dest.sin_addr),"192.168.2.96") != NULL )
+    {
+        
+        printf("\n");
+        printf("IP Header\n");
+        printf("   |-IP Version        : %d\n",(unsigned int)iph->ip_v);
+        printf("   |-Type Of Service   : %d\n",(unsigned int)iph->ip_tos);
+        printf("   |-IP Total Length   : %d  Bytes(Size of Packet)\n",ntohs(iph->ip_len));
+        printf("   |-Identification    : %d\n",ntohs(iph->ip_id));
+        printf("   |-TTL      : %d\n",(unsigned int)iph->ip_ttl);
+        printf("   |-Protocol : %d\n",(unsigned int)iph->ip_p);
+        printf("   |-Checksum : %d\n",ntohs(iph->ip_sum));
+        printf("   |-Source IP        : %s\n" , inet_ntoa(source.sin_addr) );
+        printf("   |-Destination IP   : %s\n" , inet_ntoa(dest.sin_addr) );
+        
+        
+        unsigned short iphdrlen = iph->ip_hl*4;
+        int header_size = 0;
+        
+        switch ((unsigned int)iph->ip_p)
+        {
+            case 6:
+            {
+                //TCP Protocol
+                struct tcphdr *tcph=(struct tcphdr*)(Buffer + iphdrlen + sizeof(struct ether_header));
+                header_size =  sizeof(struct ether_header) + iphdrlen + tcph->th_off*4;
+                break;
+            }
+            case 17:
+            {
+                //UDP Protocol
+                struct udphdr *udph = (struct udphdr*)(Buffer + iphdrlen  + sizeof(struct ether_header));
+                header_size =  sizeof(struct ether_header) + iphdrlen + sizeof udph;
+                break;
+            }
+        }
+        
+        print_data(Buffer + header_size, Size - header_size);
+        
+        return (unsigned int)iph->ip_p;
+        
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 void process_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *buffer)
 {
-    struct ip *iph = (struct ip*)(buffer + sizeof(struct ether_addr));
-    ++total;
+
     
-    print_ip_header(buffer, header->len);
+    print_ip(buffer, header->len);
     
-    switch ((unsigned int)iph->ip_p)
+//    switch (print_ip(buffer, header->len))
+//    {
+//        case 1:  //ICMP Protocol
+//            ++icmp;
+//            cout << "ICMP packet" << endl;
+//            break;
+//            
+//        case 2:  //IGMP Protocol
+//            ++igmp;
+//            cout << "IGMP packet" << endl;
+//            break;
+//            
+//        case 6:  //TCP Protocol
+//            ++tcp;
+//            cout << "TCP packet" << endl;
+//            break;
+//            
+//        case 17: //UDP Protocol
+//            ++udp;
+//            cout << "UDP packet" << endl;
+//            break;
+//            
+//        default: //Some Other Protocol like ARP etc.
+//            ++others;
+//            cout << "Other packet" << endl;
+//            break;
+//    }
+    
+}
+
+struct MAC_header_frame_control_t
+{ // 2 bytes total
+    uint16_t fc_protocol_version:2;     // protocol version
+    uint16_t fc_type:2;                 // type
+    uint16_t fc_subtype:4;              // subtype
+    uint16_t fc_toDS:1;                 // to DS flag
+    uint16_t fc_fromDS:1;               // from DS flag
+    uint16_t fc_moreFrag:1;             // more fragmentation
+    uint16_t fc_retry:1;                // retry flag
+    uint16_t fc_power_management:1;     // power management flag
+    uint16_t fc_more_data:1;            // more data flag
+    uint16_t fc_wep:1;                  // wep flag
+    uint16_t fc_order:1;                // order flag
+};
+
+struct MAC_header_duration_t
+{ // 2 bytes total
+    uint8_t duration_ID_b1;
+    uint8_t duration_ID_b2;
+};
+
+struct MAC_header_address_t
+{ // 4 octets
+    uint16_t addr_1:6;
+    uint16_t addr_2:6;
+    uint16_t addr_3:6;
+    uint16_t addr_4:6;
+};
+
+struct MAC_header_frame_t
+
+{
+    
+};
+
+void process_80211(u_char *args, const struct pcap_pkthdr *header, const u_char *buffer)
+{
+    // notes:
+    
+    // byte 0-24 is radiotap, 25-onward is wlan
+    
+    // packet will only contain the needed address bytes, frame and duration are the
+    // only constants between packets
+    
+    printf("packet of length: %d\n",header->caplen);
+    for(int i = 0; i < header->caplen; i++)
     {
-        case 1:  //ICMP Protocol
-            ++icmp;
-            cout << "ICMP packet" << endl;
-            break;
-            
-        case 2:  //IGMP Protocol
-            ++igmp;
-            cout << "IGMP packet" << endl;
-            break;
-            
-        case 6:  //TCP Protocol
-            ++tcp;
-            cout << "TCP packet" << endl;
-            break;
-            
-        case 17: //UDP Protocol
-            ++udp;
-            cout << "UDP packet" << endl;
-            break;
-            
-        default: //Some Other Protocol like ARP etc.
-            ++others;
-            cout << "Other packet" << endl;
-            break;
+        if(i%10 == 0) printf("\n");
+        printf(" %02X ",buffer[i]);
     }
+    printf("\n\n");
+    
+    uint8_t frame_controlb1 = buffer[25];
+    
+    printf("\n\n");
+}
+
+void start_monitor_sniffer()
+{
+    char errbuf[PCAP_ERRBUF_SIZE];
+    //char filter[] = "type mgt subtype probe-req";
+    char dev[] = "en0";
+    //struct bpf_program fp;
+    pcap_t *pcap = pcap_create(dev,errbuf);
+    pcap_set_rfmon(pcap, 1);
+    pcap_set_snaplen(pcap, 2048);
+    pcap_set_promisc(pcap, 1);
+    pcap_set_timeout(pcap, 512);
+    
+    int status;
+    status = pcap_activate(pcap);
+    //status = pcap_compile(pcap, &fp, filter, 0, 0);
+    //status = pcap_setfilter(pcap, &fp);
+    
+    pcap_loop(pcap , -1, process_80211, NULL);
+    
 }
 
 void start_sniffer()
@@ -132,7 +297,19 @@ void start_sniffer()
     
     //Open the device for sniffing
     printf("Opening device %s for sniffing ... " , devname);
-    handle = pcap_open_live(devname , 65536 , 1 , 0 , errbuf);
+    handle = pcap_open_live(devname , 65536 , 1 , 1000 , errbuf); // promiscuous mode, and 1 sec timeout (should be nonzero otherwise it'll
+                                                                  // wait until a large amount have arrived)
+
+    int mon_can_ret = pcap_can_set_rfmon(handle);
+    
+    cout << "monitor capability: " << mon_can_ret << endl;
+    
+    int mon_ret = pcap_set_rfmon(handle, 1);
+    
+    if(mon_ret != 0)
+    {
+        cout << "monitor mode error" << endl;
+    }
     
     if (handle == NULL)
     {
@@ -146,6 +323,7 @@ void start_sniffer()
     {
         printf("Unable to create file.");
     }
+    
     
     //Put the device in sniff loop
     pcap_loop(handle , -1 , process_packet , NULL);

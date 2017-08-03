@@ -10,5 +10,6 @@
 #define packet_sniffer_h
 
 void start_sniffer();
+void start_monitor_sniffer();
 
 #endif /* packet_sniffer_h */
