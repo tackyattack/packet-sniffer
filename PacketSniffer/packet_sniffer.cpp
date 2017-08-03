@@ -238,21 +238,32 @@ struct MAC_header_sequence_control_t
     uint8_t sequence_b2;
 };
 
-struct MAC_header_duration_t
+struct MAC_header_qos_control_t
 { // 2 bytes
     uint8_t duration_ID_b1;
     uint8_t duration_ID_b2;
 };
 
+struct MAC_header_ht_control_t
+{ // 2 bytes
+    uint8_t duration_ID_b1;
+    uint8_t duration_ID_b2;
+    uint8_t duration_ID_b3;
+    uint8_t duration_ID_b4;
+};
+
 struct MAC_header_frame_t
 
 {
-    MAC_header_frame_control_t frame_control;
-    MAC_header_duration_t      duration_id;
-    MAC_header_address_t       address;
+    MAC_header_frame_control_t    frame_control;
+    MAC_header_duration_t         duration_id;
+    MAC_header_address_t          address;
     MAC_header_sequence_control_t sequence_control;
+    MAC_header_qos_control_t      qos_control;
+    MAC_header_ht_control_t       ht_control;
+    
     uint8_t frame_type;
-    u_char *network_data_start;
+    u_char *frame_body_start;
 };
 
 
@@ -279,8 +290,7 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
     
     memcpy(&radio_tap_len, buffer + 2, sizeof(radio_tap_len));
     
-    const u_char *MAC_offset = buffer + radio_tap_len; // skip radiotap
-    const u_char *MAC_addr_start = MAC_offset + 4; // skip FC and duration
+    u_char *MAC_offset = buffer + radio_tap_len; // skip radiotap
     
     memcpy(&(frame->frame_control), MAC_offset, sizeof(frame->frame_control)); // copy in the frame control
     
@@ -298,57 +308,86 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
         frame->frame_type = MAC_FRAME_TYPE_DATA;
     }
     
+    bool addr_4_present = false;
+    
     // process only data frames for now (really the most important ones)
     if(frame->frame_type == MAC_FRAME_TYPE_DATA)
     {
         
         if(!frame->frame_control.fc_toDS && !frame->frame_control.fc_fromDS)
         { // 0 0
-            memcpy(frame->address.addr1, MAC_addr_start, 6);
-            memcpy(frame->address.addr2, MAC_addr_start + 6, 6);
-            //memcpy(frame->address.addr3, MAC_addr_start + 6 + 6, 6);
+            memcpy(frame->address.addr1, MAC_offset + 2 + 2, 6);
+            memcpy(frame->address.addr2, MAC_offset + 2 + 2 + 6, 6);
+            memcpy(frame->address.addr3, MAC_offset + 2 + 2 + 6 + 6, 6);
             
             frame->address.addr1_type = MAC_ADDR_TYPE_DESTINATION;
             frame->address.addr2_type = MAC_ADDR_TYPE_SOURCE;
-            frame->address.addr3_type = MAC_ADDR_TYPE_NONE;
+            frame->address.addr3_type = MAC_ADDR_TYPE_BSSID;
             frame->address.addr4_type = MAC_ADDR_TYPE_NONE;
             
-            // todo: looks like only src and dest come through, not BSSID
+           addr_4_present = false;
         }
         else if(!frame->frame_control.fc_toDS && frame->frame_control.fc_fromDS)
         { // 0 1
-            memcpy(frame->address.addr1, MAC_addr_start, 6);
-            memcpy(frame->address.addr2, MAC_addr_start + 6, 6);
-            memcpy(frame->address.addr3, MAC_addr_start + 6 + 6, 6);
+            memcpy(frame->address.addr1, MAC_offset + 2 + 2, 6);
+            memcpy(frame->address.addr2, MAC_offset + 2 + 2 + 6, 6);
+            memcpy(frame->address.addr3, MAC_offset + 2 + 2 + 6 + 6, 6);
             
             frame->address.addr1_type = MAC_ADDR_TYPE_DESTINATION;
             frame->address.addr2_type = MAC_ADDR_TYPE_BSSID;
             frame->address.addr3_type = MAC_ADDR_TYPE_SOURCE;
             frame->address.addr4_type = MAC_ADDR_TYPE_NONE;
+            
+            addr_4_present = false;
         }
         else if(frame->frame_control.fc_toDS && !frame->frame_control.fc_fromDS)
         { // 1 0
-            memcpy(frame->address.addr1, MAC_addr_start, 6);
-            memcpy(frame->address.addr2, MAC_addr_start + 6, 6);
-            memcpy(frame->address.addr3, MAC_addr_start + 6 + 6, 6);
+            memcpy(frame->address.addr1, MAC_offset + 2 + 2, 6);
+            memcpy(frame->address.addr2, MAC_offset + 2 + 2 + 6, 6);
+            memcpy(frame->address.addr3, MAC_offset + 2 + 2 + 6 + 6, 6);
             
             frame->address.addr1_type = MAC_ADDR_TYPE_BSSID;
             frame->address.addr2_type = MAC_ADDR_TYPE_SOURCE;
             frame->address.addr3_type = MAC_ADDR_TYPE_DESTINATION;
             frame->address.addr4_type = MAC_ADDR_TYPE_NONE;
+            
+            addr_4_present = false;
         }
         else if(frame->frame_control.fc_toDS && frame->frame_control.fc_fromDS)
         { // 1 1
-            memcpy(frame->address.addr1, MAC_addr_start, 6);
-            memcpy(frame->address.addr2, MAC_addr_start + 6, 6);
-            memcpy(frame->address.addr3, MAC_addr_start + 6 + 6, 6);
-            memcpy(frame->address.addr3, MAC_addr_start + 6 + 6 + 6 + 2, 6); // skip sequence bytes (2)
+            
+            //The presence of the Address 4 field is determined by the setting of the To DS and From DS subfields of the Frame Control field
+            
+            memcpy(frame->address.addr1, MAC_offset + 2 + 2, 6);
+            memcpy(frame->address.addr2, MAC_offset + 2 + 2 + 6, 6);
+            memcpy(frame->address.addr3, MAC_offset + 2 + 2 + 6 + 6, 6);
+            memcpy(frame->address.addr3, MAC_offset + 2 + 2 + 6 + 6 + 6 + 2, 6); // skip sequence bytes (2)
             
             frame->address.addr1_type = MAC_ADDR_TYPE_RECEIVER;
             frame->address.addr2_type = MAC_ADDR_TYPE_TRANSMITTER;
             frame->address.addr3_type = MAC_ADDR_TYPE_DESTINATION;
             frame->address.addr4_type = MAC_ADDR_TYPE_SOURCE;
+            
+            addr_4_present = true;
         }
+        
+        u_char *end_of_addr;
+        u_char *seq_ptr;
+        
+        if(addr_4_present)
+        {
+            end_of_addr = MAC_offset + 2 + 2 + 6 + 6 + 6 + 2 + 6;
+            seq_ptr = MAC_offset + 2 + 2 + 6 + 6 + 6;
+        }
+        else
+        {
+            end_of_addr = MAC_offset + 2 + 2 + 6 + 6 + 6;
+            seq_ptr = MAC_offset + 2 + 2 + 6 + 6 + 6;
+        }
+        
+        
+        
+        memcpy(frame->address.addr3, MAC_addr_start + 6 + 6 + 6 + 2, 6);
         
     }
     
