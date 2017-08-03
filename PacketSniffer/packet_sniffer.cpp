@@ -190,10 +190,16 @@ void process_packet(u_char *args, const struct pcap_pkthdr *header, const u_char
 #define MAC_ADDR_TYPE_TRANSMITTER    5
 #define MAC_ADDR_TYPE_NONE           6
 
+#define MAC_FRAME_TYPE_CONTROL       1
+#define MAC_FRAME_TYPE_MANAGEMENT    2
+#define MAC_FRAME_TYPE_DATA          3
+
+
 struct MAC_header_frame_control_t
 { // 2 bytes
     uint16_t fc_protocol_version:2;     // protocol version
-    uint16_t fc_type:2;                 // type
+    uint16_t fc_typeb1:1;               // type
+    uint16_t fc_typeb2:1;               // type
     uint16_t fc_subtype:4;              // subtype
     uint16_t fc_toDS:1;                 // to DS flag
     uint16_t fc_fromDS:1;               // from DS flag
@@ -232,6 +238,12 @@ struct MAC_header_sequence_control_t
     uint8_t sequence_b2;
 };
 
+struct MAC_header_duration_t
+{ // 2 bytes
+    uint8_t duration_ID_b1;
+    uint8_t duration_ID_b2;
+};
+
 struct MAC_header_frame_t
 
 {
@@ -239,6 +251,8 @@ struct MAC_header_frame_t
     MAC_header_duration_t      duration_id;
     MAC_header_address_t       address;
     MAC_header_sequence_control_t sequence_control;
+    uint8_t frame_type;
+    u_char *network_data_start;
 };
 
 
@@ -252,64 +266,90 @@ struct MAC_header_frame_t
 //   1         1          Recv         Trans       Dest          Src
 //------------------------------------------------------------------------
 
-//#define MAC_ADDR_TYPE_DESTINATION    1
-//#define MAC_ADDR_TYPE_SOURCE         2
-//#define MAC_ADDR_TYPE_BSSID          3
-//#define MAC_ADDR_TYPE_RECEIVER       4
-//#define MAC_ADDR_TYPE_TRANSMITTER    5
-//#define MAC_ADDR_TYPE_NONE           6
 void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
 {
-    const u_char *MAC_offset = buffer + 25; // skip radiotap
+    // radio tap format
+    //-----------------
+    // version       : 1 bytes
+    // padding       : 1 bytes
+    // header length : 2 bytes
+    //-----------------
+    
+    uint16_t radio_tap_len = 0;
+    
+    memcpy(&radio_tap_len, buffer + 2, sizeof(radio_tap_len));
+    
+    const u_char *MAC_offset = buffer + radio_tap_len; // skip radiotap
     const u_char *MAC_addr_start = MAC_offset + 4; // skip FC and duration
     
     memcpy(&(frame->frame_control), MAC_offset, sizeof(frame->frame_control)); // copy in the frame control
     
-    if(!frame->frame_control.fc_toDS && !frame->frame_control.fc_fromDS)
+    // note : careful, in the docs format is b3b2
+    if(!frame->frame_control.fc_typeb1 && !frame->frame_control.fc_typeb2)
     { // 0 0
-        memcpy(frame->address.addr1, MAC_addr_start, 6);
-        memcpy(frame->address.addr2, MAC_addr_start + 6, 6);
-        //memcpy(frame->address.addr3, MAC_addr_start + 6 + 6, 6);
-        
-        frame->address.addr1_type = MAC_ADDR_TYPE_DESTINATION;
-        frame->address.addr2_type = MAC_ADDR_TYPE_SOURCE;
-        frame->address.addr3_type = MAC_ADDR_TYPE_NONE;
-        frame->address.addr4_type = MAC_ADDR_TYPE_NONE;
-        
-        // todo: looks like only src and dest come through, not BSSID
+        frame->frame_type = MAC_FRAME_TYPE_MANAGEMENT;
     }
-    else if(!frame->frame_control.fc_toDS && frame->frame_control.fc_fromDS)
-    { // 0 1
-        memcpy(frame->address.addr1, MAC_addr_start, 6);
-        memcpy(frame->address.addr2, MAC_addr_start + 6, 6);
-        memcpy(frame->address.addr3, MAC_addr_start + 6 + 6, 6);
-        
-        frame->address.addr1_type = MAC_ADDR_TYPE_DESTINATION;
-        frame->address.addr2_type = MAC_ADDR_TYPE_BSSID;
-        frame->address.addr3_type = MAC_ADDR_TYPE_SOURCE;
-        frame->address.addr4_type = MAC_ADDR_TYPE_NONE;
-    }
-    else if(frame->frame_control.fc_toDS && !frame->frame_control.fc_fromDS)
+    else if(frame->frame_control.fc_typeb1 && !frame->frame_control.fc_typeb2)
     { // 1 0
-        memcpy(frame->address.addr1, MAC_addr_start, 6);
-        memcpy(frame->address.addr2, MAC_addr_start + 6, 6);
-        memcpy(frame->address.addr3, MAC_addr_start + 6 + 6, 6);
-        
-        frame->address.addr1_type = MAC_ADDR_TYPE_BSSID;
-        frame->address.addr2_type = MAC_ADDR_TYPE_SOURCE;
-        frame->address.addr3_type = MAC_ADDR_TYPE_DESTINATION;
-        frame->address.addr4_type = MAC_ADDR_TYPE_NONE;
+        frame->frame_type = MAC_FRAME_TYPE_CONTROL;
     }
-    else if(frame->frame_control.fc_toDS && frame->frame_control.fc_fromDS)
-    { // 1 1
-        memcpy(frame->address.addr1, MAC_addr_start, 6);
-        memcpy(frame->address.addr2, MAC_addr_start + 6, 6);
-        memcpy(frame->address.addr3, MAC_addr_start + 6 + 6, 6);
+    else if(!frame->frame_control.fc_typeb1 && frame->frame_control.fc_typeb2)
+    { // 0 1
+        frame->frame_type = MAC_FRAME_TYPE_DATA;
+    }
+    
+    // process only data frames for now (really the most important ones)
+    if(frame->frame_type == MAC_FRAME_TYPE_DATA)
+    {
         
-        frame->address.addr1_type = MAC_ADDR_TYPE_RECEIVER;
-        frame->address.addr2_type = MAC_ADDR_TYPE_TRANSMITTER;
-        frame->address.addr3_type = MAC_ADDR_TYPE_DESTINATION;
-        frame->address.addr4_type = MAC_ADDR_TYPE_SOURCE;
+        if(!frame->frame_control.fc_toDS && !frame->frame_control.fc_fromDS)
+        { // 0 0
+            memcpy(frame->address.addr1, MAC_addr_start, 6);
+            memcpy(frame->address.addr2, MAC_addr_start + 6, 6);
+            //memcpy(frame->address.addr3, MAC_addr_start + 6 + 6, 6);
+            
+            frame->address.addr1_type = MAC_ADDR_TYPE_DESTINATION;
+            frame->address.addr2_type = MAC_ADDR_TYPE_SOURCE;
+            frame->address.addr3_type = MAC_ADDR_TYPE_NONE;
+            frame->address.addr4_type = MAC_ADDR_TYPE_NONE;
+            
+            // todo: looks like only src and dest come through, not BSSID
+        }
+        else if(!frame->frame_control.fc_toDS && frame->frame_control.fc_fromDS)
+        { // 0 1
+            memcpy(frame->address.addr1, MAC_addr_start, 6);
+            memcpy(frame->address.addr2, MAC_addr_start + 6, 6);
+            memcpy(frame->address.addr3, MAC_addr_start + 6 + 6, 6);
+            
+            frame->address.addr1_type = MAC_ADDR_TYPE_DESTINATION;
+            frame->address.addr2_type = MAC_ADDR_TYPE_BSSID;
+            frame->address.addr3_type = MAC_ADDR_TYPE_SOURCE;
+            frame->address.addr4_type = MAC_ADDR_TYPE_NONE;
+        }
+        else if(frame->frame_control.fc_toDS && !frame->frame_control.fc_fromDS)
+        { // 1 0
+            memcpy(frame->address.addr1, MAC_addr_start, 6);
+            memcpy(frame->address.addr2, MAC_addr_start + 6, 6);
+            memcpy(frame->address.addr3, MAC_addr_start + 6 + 6, 6);
+            
+            frame->address.addr1_type = MAC_ADDR_TYPE_BSSID;
+            frame->address.addr2_type = MAC_ADDR_TYPE_SOURCE;
+            frame->address.addr3_type = MAC_ADDR_TYPE_DESTINATION;
+            frame->address.addr4_type = MAC_ADDR_TYPE_NONE;
+        }
+        else if(frame->frame_control.fc_toDS && frame->frame_control.fc_fromDS)
+        { // 1 1
+            memcpy(frame->address.addr1, MAC_addr_start, 6);
+            memcpy(frame->address.addr2, MAC_addr_start + 6, 6);
+            memcpy(frame->address.addr3, MAC_addr_start + 6 + 6, 6);
+            memcpy(frame->address.addr3, MAC_addr_start + 6 + 6 + 6 + 2, 6); // skip sequence bytes (2)
+            
+            frame->address.addr1_type = MAC_ADDR_TYPE_RECEIVER;
+            frame->address.addr2_type = MAC_ADDR_TYPE_TRANSMITTER;
+            frame->address.addr3_type = MAC_ADDR_TYPE_DESTINATION;
+            frame->address.addr4_type = MAC_ADDR_TYPE_SOURCE;
+        }
+        
     }
     
 }
@@ -318,7 +358,7 @@ void process_80211(u_char *args, const struct pcap_pkthdr *header, const u_char 
 {
     // notes:
     
-    // byte 0-24 is radiotap, 25-onward is wlan
+    // radio tap + WLAN (actual 802.11 frame)
     
     // packet will only contain the needed address bytes, frame and duration are the
     // only constants between packets
@@ -331,7 +371,13 @@ void process_80211(u_char *args, const struct pcap_pkthdr *header, const u_char 
     }
     printf("\n\n");
     
-    uint8_t frame_controlb1 = buffer[25];
+    MAC_header_frame_t MAC_header;
+    set_MAC_header(&MAC_header,buffer);
+    
+    printf("MAC addr 1: %d\n",MAC_header.address.addr1_type);
+    printf("MAC addr 2: %d\n",MAC_header.address.addr2_type);
+    printf("MAC addr 3: %d\n",MAC_header.address.addr3_type);
+    printf("MAC addr 4: %d\n",MAC_header.address.addr4_type);
     
     printf("\n\n");
 }
