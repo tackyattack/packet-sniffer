@@ -183,6 +183,13 @@ void process_packet(u_char *args, const struct pcap_pkthdr *header, const u_char
     
 }
 
+#define FRAME_CONTROL_SIZE 2
+#define DURATION_SIZE      2
+#define OCTET_ADDRESS_SIZE 6
+#define SEQ_SIZE           2
+#define QOS_SIZE           2
+#define HT_SIZE            4
+
 #define MAC_ADDR_TYPE_DESTINATION    1
 #define MAC_ADDR_TYPE_SOURCE         2
 #define MAC_ADDR_TYPE_BSSID          3
@@ -193,6 +200,8 @@ void process_packet(u_char *args, const struct pcap_pkthdr *header, const u_char
 #define MAC_FRAME_TYPE_CONTROL       1
 #define MAC_FRAME_TYPE_MANAGEMENT    2
 #define MAC_FRAME_TYPE_DATA          3
+
+char MAC_msg[100];
 
 
 struct MAC_header_frame_control_t
@@ -263,9 +272,159 @@ struct MAC_header_frame_t
     MAC_header_ht_control_t       ht_control;
     
     uint8_t frame_type;
-    u_char *frame_body_start;
+    const u_char *frame_body_start;
 };
 
+
+char *getSubtype(uint16_t subtype, uint8_t type)
+{
+    if( (subtype & 0b1111) == 0b0111 && type == MAC_FRAME_TYPE_MANAGEMENT )
+    {
+        strcpy(MAC_msg, "Reserved");
+    }
+    else if( (subtype & 0b1111) == 0b1000 && type == MAC_FRAME_TYPE_MANAGEMENT )
+    {
+        strcpy(MAC_msg, "Beacon");
+    }
+    else if( (subtype & 0b1111) == 0b1001 && type == MAC_FRAME_TYPE_MANAGEMENT )
+    {
+        strcpy(MAC_msg, "ATIM");
+    }
+    else if( (subtype & 0b1111) == 0b1010 && type == MAC_FRAME_TYPE_MANAGEMENT )
+    {
+        strcpy(MAC_msg, "Disassociation");
+    }
+    else if( (subtype & 0b1111) == 0b1011 && type == MAC_FRAME_TYPE_MANAGEMENT )
+    {
+        strcpy(MAC_msg, "Authentication");
+    }
+    else if( (subtype & 0b1111) == 0b1100 && type == MAC_FRAME_TYPE_MANAGEMENT )
+    {
+        strcpy(MAC_msg, "Deauthentication");
+    }
+    else if( (subtype & 0b1111) == 0b1101 && type == MAC_FRAME_TYPE_MANAGEMENT )
+    {
+        strcpy(MAC_msg, "Action");
+    }
+    else if( (subtype & 0b1111) == 0b1110 && type == MAC_FRAME_TYPE_MANAGEMENT )
+    {
+        strcpy(MAC_msg, "Action No Ack");
+    }
+    else if( (subtype & 0b1111) == 0b1111 && type == MAC_FRAME_TYPE_MANAGEMENT )
+    {
+        strcpy(MAC_msg, "Reserved");
+    }
+    else if( (subtype & 0b1111) == 0b0000 && type == MAC_FRAME_TYPE_CONTROL )
+    {
+        strcpy(MAC_msg, "Reserved");
+    }
+    else if( (subtype & 0b1111) == 0b0111 && type == MAC_FRAME_TYPE_CONTROL )
+    {
+        strcpy(MAC_msg, "Control Wrapper");
+    }
+    else if( (subtype & 0b1111) == 0b1000 && type == MAC_FRAME_TYPE_CONTROL )
+    {
+        strcpy(MAC_msg, "Block Ack Request (BlockAckReq)");
+    }
+    else if( (subtype & 0b1111) == 0b1001 && type == MAC_FRAME_TYPE_CONTROL )
+    {
+        strcpy(MAC_msg, "Block Ack (BlockAck)");
+    }
+    else if( (subtype & 0b1111) == 0b1010 && type == MAC_FRAME_TYPE_CONTROL )
+    {
+        strcpy(MAC_msg, "PS-Poll");
+    }
+    else if( (subtype & 0b1111) == 0b1011 && type == MAC_FRAME_TYPE_CONTROL )
+    {
+        strcpy(MAC_msg, "RTS");
+    }
+    else if( (subtype & 0b1111) == 0b1100 && type == MAC_FRAME_TYPE_CONTROL )
+    {
+        strcpy(MAC_msg, "CTS");
+    }
+    else if( (subtype & 0b1111) == 0b1101 && type == MAC_FRAME_TYPE_CONTROL )
+    {
+        strcpy(MAC_msg, "ACK");
+    }
+    else if( (subtype & 0b1111) == 0b1110 && type == MAC_FRAME_TYPE_CONTROL )
+    {
+        strcpy(MAC_msg, "CF-End");
+    }
+    else if( (subtype & 0b1111) == 0b1111 && type == MAC_FRAME_TYPE_CONTROL )
+    {
+        strcpy(MAC_msg, "CF-End + CF-Ack");
+    }
+    else if( (subtype & 0b1111) == 0b0000 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "Data");
+    }
+    else if( (subtype & 0b1111) == 0b0001 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "Data + CF-Ack");
+    }
+    else if( (subtype & 0b1111) == 0b0010 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "Data + CF-Poll");
+    }
+    else if( (subtype & 0b1111) == 0b0011 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "Data + CF-Ack + CF-Poll");
+    }
+    else if( (subtype & 0b1111) == 0b0100 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "Null (no data)");
+    }
+    else if( (subtype & 0b1111) == 0b0101 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "CF-Ack (no data)");
+    }
+    else if( (subtype & 0b1111) == 0b0110 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "CF-Poll (no data)");
+    }
+    else if( (subtype & 0b1111) == 0b0111 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "CF-Ack + CF-Poll (no data)");
+    }
+    else if( (subtype & 0b1111) == 0b1000 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "QoS Data");
+    }
+    else if( (subtype & 0b1111) == 0b1001 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "QoS Data + CF-Ack");
+    }
+    else if( (subtype & 0b1111) == 0b1010 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "QoS Data + CF-Poll");
+    }
+    else if( (subtype & 0b1111) == 0b1011 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "QoS Data + CF-Ack + CF-Poll");
+    }
+    else if( (subtype & 0b1111) == 0b1100 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "QoS Null (no data)");
+    }
+    else if( (subtype & 0b1111) == 0b1101 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "Reserved");
+    }
+    else if( (subtype & 0b1111) == 0b1110 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "QoS CF-Poll (no data)");
+    }
+    else if( (subtype & 0b1111) == 0b1111 && type == MAC_FRAME_TYPE_DATA )
+    {
+        strcpy(MAC_msg, "QoS CF-Ack + CF-Poll (no data)");
+    }
+    else
+    {
+        strcpy(MAC_msg, "Reserved");
+    }
+    
+    return MAC_msg;
+}
 
 // Address field table 802.11:
 //------------------------------------------------------------------------
@@ -290,9 +449,12 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
     
     memcpy(&radio_tap_len, buffer + 2, sizeof(radio_tap_len));
     
-    u_char *MAC_offset = buffer + radio_tap_len; // skip radiotap
+    const u_char *MAC_offset = buffer + radio_tap_len; // skip radiotap
     
     memcpy(&(frame->frame_control), MAC_offset, sizeof(frame->frame_control)); // copy in the frame control
+    
+    
+    // page 380 for MAC layer
     
     // note : careful, in the docs format is b3b2
     if(!frame->frame_control.fc_typeb1 && !frame->frame_control.fc_typeb2)
@@ -316,9 +478,9 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
         
         if(!frame->frame_control.fc_toDS && !frame->frame_control.fc_fromDS)
         { // 0 0
-            memcpy(frame->address.addr1, MAC_offset + 2 + 2, 6);
-            memcpy(frame->address.addr2, MAC_offset + 2 + 2 + 6, 6);
-            memcpy(frame->address.addr3, MAC_offset + 2 + 2 + 6 + 6, 6);
+            memcpy(frame->address.addr1, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE, OCTET_ADDRESS_SIZE);
+            memcpy(frame->address.addr2, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE, OCTET_ADDRESS_SIZE);
+            memcpy(frame->address.addr3, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE, OCTET_ADDRESS_SIZE);
             
             frame->address.addr1_type = MAC_ADDR_TYPE_DESTINATION;
             frame->address.addr2_type = MAC_ADDR_TYPE_SOURCE;
@@ -329,9 +491,9 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
         }
         else if(!frame->frame_control.fc_toDS && frame->frame_control.fc_fromDS)
         { // 0 1
-            memcpy(frame->address.addr1, MAC_offset + 2 + 2, 6);
-            memcpy(frame->address.addr2, MAC_offset + 2 + 2 + 6, 6);
-            memcpy(frame->address.addr3, MAC_offset + 2 + 2 + 6 + 6, 6);
+            memcpy(frame->address.addr1, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE, OCTET_ADDRESS_SIZE);
+            memcpy(frame->address.addr2, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE+ OCTET_ADDRESS_SIZE, OCTET_ADDRESS_SIZE);
+            memcpy(frame->address.addr3, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE, OCTET_ADDRESS_SIZE);
             
             frame->address.addr1_type = MAC_ADDR_TYPE_DESTINATION;
             frame->address.addr2_type = MAC_ADDR_TYPE_BSSID;
@@ -342,9 +504,9 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
         }
         else if(frame->frame_control.fc_toDS && !frame->frame_control.fc_fromDS)
         { // 1 0
-            memcpy(frame->address.addr1, MAC_offset + 2 + 2, 6);
-            memcpy(frame->address.addr2, MAC_offset + 2 + 2 + 6, 6);
-            memcpy(frame->address.addr3, MAC_offset + 2 + 2 + 6 + 6, 6);
+            memcpy(frame->address.addr1, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE, OCTET_ADDRESS_SIZE);
+            memcpy(frame->address.addr2, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE, OCTET_ADDRESS_SIZE);
+            memcpy(frame->address.addr3, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE, OCTET_ADDRESS_SIZE);
             
             frame->address.addr1_type = MAC_ADDR_TYPE_BSSID;
             frame->address.addr2_type = MAC_ADDR_TYPE_SOURCE;
@@ -358,10 +520,10 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
             
             //The presence of the Address 4 field is determined by the setting of the To DS and From DS subfields of the Frame Control field
             
-            memcpy(frame->address.addr1, MAC_offset + 2 + 2, 6);
-            memcpy(frame->address.addr2, MAC_offset + 2 + 2 + 6, 6);
-            memcpy(frame->address.addr3, MAC_offset + 2 + 2 + 6 + 6, 6);
-            memcpy(frame->address.addr3, MAC_offset + 2 + 2 + 6 + 6 + 6 + 2, 6); // skip sequence bytes (2)
+            memcpy(frame->address.addr1, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE, OCTET_ADDRESS_SIZE);
+            memcpy(frame->address.addr2, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE, OCTET_ADDRESS_SIZE);
+            memcpy(frame->address.addr3, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE, OCTET_ADDRESS_SIZE);
+            memcpy(frame->address.addr3, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE + SEQ_SIZE, OCTET_ADDRESS_SIZE); // skip sequence bytes (2)
             
             frame->address.addr1_type = MAC_ADDR_TYPE_RECEIVER;
             frame->address.addr2_type = MAC_ADDR_TYPE_TRANSMITTER;
@@ -371,26 +533,115 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
             addr_4_present = true;
         }
         
-        u_char *end_of_addr;
-        u_char *seq_ptr;
+        const u_char *end_of_addr;
+        const u_char *seq_ptr;
         
         if(addr_4_present)
         {
-            end_of_addr = MAC_offset + 2 + 2 + 6 + 6 + 6 + 2 + 6;
-            seq_ptr = MAC_offset + 2 + 2 + 6 + 6 + 6;
+            end_of_addr = MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE +
+                                       OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE + SEQ_SIZE + OCTET_ADDRESS_SIZE;
+            seq_ptr = MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE;
         }
         else
         {
-            end_of_addr = MAC_offset + 2 + 2 + 6 + 6 + 6;
-            seq_ptr = MAC_offset + 2 + 2 + 6 + 6 + 6;
+            end_of_addr = MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE;
+            seq_ptr = MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE;
         }
         
         
         
-        memcpy(frame->address.addr3, MAC_addr_start + 6 + 6 + 6 + 2, 6);
+        memcpy(&(frame->sequence_control), seq_ptr, SEQ_SIZE);
+        
+        bool QoS_presnet = false;
+        
+        if(strstr(getSubtype(frame->frame_control.fc_subtype, frame->frame_type), "QoS") != NULL)
+        {
+            QoS_presnet = true;
+        }
+        else
+        {
+            QoS_presnet = false;
+        }
+        
+        if(QoS_presnet)
+        {
+            const u_char *qos_ptr = seq_ptr; // get to start of variation
+            if(addr_4_present) qos_ptr = qos_ptr + OCTET_ADDRESS_SIZE;
+            memcpy(&(frame->qos_control), qos_ptr, QOS_SIZE);
+        }
+        
+        const u_char *ht_ptr = seq_ptr; // get to start of variation
+        if(QoS_presnet)
+        {
+            ht_ptr = ht_ptr + QOS_SIZE;
+        }
+        if(addr_4_present)
+        {
+            ht_ptr = ht_ptr + OCTET_ADDRESS_SIZE;
+        }
+        
+        memcpy(&(frame->ht_control), ht_ptr, HT_SIZE);
+        
+        frame->frame_body_start = ht_ptr + HT_SIZE;
         
     }
     
+}
+
+void print_MAC_type(uint8_t type)
+{
+    if(type == MAC_ADDR_TYPE_DESTINATION)
+    {
+        printf("MAC type: DESTINATION");
+    }
+    else if (type == MAC_ADDR_TYPE_SOURCE)
+    {
+        printf("MAC type: SOURCE");
+    }
+    else if(type == MAC_ADDR_TYPE_BSSID)
+    {
+        printf("MAC type: BSSID");
+    }
+    else if(type == MAC_ADDR_TYPE_RECEIVER)
+    {
+        printf("MAC type: RECEIVER");
+    }
+    else if(type == MAC_ADDR_TYPE_TRANSMITTER)
+    {
+        printf("MAC type: TRANSMITTER");
+    }
+    else if(type == MAC_ADDR_TYPE_NONE)
+    {
+        printf("MAC type: NONE");
+    }
+}
+
+void print_MAC_address(uint8_t *addr)
+{
+    printf("%02X:%02X:%02X:%02X:%02X:%02X",addr[0],addr[1],addr[2],addr[3],addr[4],addr[5]);
+}
+
+void print_MAC_header_addresses(MAC_header_frame_t frame)
+{
+    print_MAC_type(frame.address.addr1_type);
+    printf("\n");
+    print_MAC_address(frame.address.addr1);
+    printf("\n");
+    
+    print_MAC_type(frame.address.addr2_type);
+    printf("\n");
+    print_MAC_address(frame.address.addr2);
+    printf("\n");
+    
+    print_MAC_type(frame.address.addr2_type);
+    printf("\n");
+    print_MAC_address(frame.address.addr2);
+    printf("\n");
+    
+    print_MAC_type(frame.address.addr1_type);
+    printf("\n");
+    print_MAC_address(frame.address.addr2);
+    printf("\n");
 }
 
 void process_80211(u_char *args, const struct pcap_pkthdr *header, const u_char *buffer)
@@ -413,10 +664,7 @@ void process_80211(u_char *args, const struct pcap_pkthdr *header, const u_char 
     MAC_header_frame_t MAC_header;
     set_MAC_header(&MAC_header,buffer);
     
-    printf("MAC addr 1: %d\n",MAC_header.address.addr1_type);
-    printf("MAC addr 2: %d\n",MAC_header.address.addr2_type);
-    printf("MAC addr 3: %d\n",MAC_header.address.addr3_type);
-    printf("MAC addr 4: %d\n",MAC_header.address.addr4_type);
+    print_MAC_header_addresses(MAC_header);
     
     printf("\n\n");
 }
