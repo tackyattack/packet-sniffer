@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		023925291F32218600230F04 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 023925281F32218600230F04 /* main.cpp */; };
 		023925301F32226700230F04 /* packet_sniffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0239252F1F32226700230F04 /* packet_sniffer.cpp */; };
+		02A3B2421F33C66300F6C422 /* 80211.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02A3B2411F33C66300F6C422 /* 80211.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -28,6 +29,8 @@
 		023925281F32218600230F04 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		0239252F1F32226700230F04 /* packet_sniffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = packet_sniffer.cpp; sourceTree = "<group>"; };
 		023925311F32226F00230F04 /* packet_sniffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = packet_sniffer.h; sourceTree = "<group>"; };
+		02A3B2411F33C66300F6C422 /* 80211.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = 80211.cpp; sourceTree = "<group>"; };
+		02A3B2431F33C66D00F6C422 /* 80211.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = 80211.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +66,8 @@
 				023925281F32218600230F04 /* main.cpp */,
 				023925311F32226F00230F04 /* packet_sniffer.h */,
 				0239252F1F32226700230F04 /* packet_sniffer.cpp */,
+				02A3B2431F33C66D00F6C422 /* 80211.h */,
+				02A3B2411F33C66300F6C422 /* 80211.cpp */,
 			);
 			path = PacketSniffer;
 			sourceTree = "<group>";
@@ -123,6 +128,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				02A3B2421F33C66300F6C422 /* 80211.cpp in Sources */,
 				023925291F32218600230F04 /* main.cpp in Sources */,
 				023925301F32226700230F04 /* packet_sniffer.cpp in Sources */,
 			);
@@ -261,6 +267,7 @@
 				0239252E1F32218600230F04 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
