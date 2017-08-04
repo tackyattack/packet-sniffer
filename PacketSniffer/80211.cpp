@@ -13,6 +13,17 @@
 // 4. See if MLME applies
 // 5. once you have MPDU packets, pass them to security
 
+// See if you need a ring buffer to process 802.11 packets, or if layers 3 and above need one.
+
+// MSDU -> MPDU -> (security) -> LLC -> upper layers
+// The MSDU (can be A-MSDU) are encapsulated by MPDU (can be A-MPDU) which then
+// has security [MAC HEADER | CCMP | DATA (encrypted) | FCS]. After decryption (if secure),
+// then the MSDU is passed up to the Logical Link Control, which reads the LLC header and determines
+// which layer to pass the packet to (probably after stripping the LLC)
+
+// Authenticaion should be a layer that LLC passes to since EAPOL contains an LLC header
+
+
 #include <stdio.h>
 #include <sys/types.h>  // useful system types
 #include <iostream>
@@ -84,8 +95,15 @@ struct MAC_header_sequence_control_t
 
 struct MAC_header_qos_control_t
 { // 2 bytes
-    uint8_t duration_ID_b1;
-    uint8_t duration_ID_b2;
+    uint16_t qos_TID:4;
+    uint16_t qos_EOSP:1;
+    uint16_t qos_ack_policy:2;
+    uint16_t qos_A_MSDU_present:1;
+    uint16_t qos_A_MSDU_type:1;
+    uint16_t qos_more_PPDU:1;
+    uint16_t qos_buffered_AC:4;
+    uint16_t qos_reserved:1;
+    uint16_t qos_AC_constraint:1;
 };
 
 struct MAC_header_ht_control_t
@@ -105,6 +123,9 @@ struct MAC_header_frame_t
     MAC_header_sequence_control_t sequence_control;
     MAC_header_qos_control_t      qos_control;
     MAC_header_ht_control_t       ht_control;
+    
+    bool qos_present;
+    bool ht_present;
     
     uint8_t frame_type;
     const u_char *frame_body_start;
@@ -286,8 +307,7 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
     
     const u_char *MAC_offset = buffer + radio_tap_len; // skip radiotap
     
-    memcpy(&(frame->frame_control), MAC_offset, sizeof(frame->frame_control)); // copy in the frame control
-    
+    memcpy(&(frame->frame_control), MAC_offset, FRAME_CONTROL_SIZE); // copy in the frame control
     
     // note : careful, in the docs format is b3b2
     if(!frame->frame_control.fc_typeb1 && !frame->frame_control.fc_typeb2)
@@ -308,6 +328,8 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
     // process only data frames for now (really the most important ones)
     if(frame->frame_type == MAC_FRAME_TYPE_DATA)
     {
+        //printf("MAC start : %02X ",*MAC_offset);
+        //printf(" FC: %d ", frame->frame_control.fc_protected);
         
         if(!frame->frame_control.fc_toDS && !frame->frame_control.fc_fromDS)
         { // 0 0
@@ -388,7 +410,10 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
         bool QoS_presnet = false;
         
         // check to make sure QoS and HT checks are correct -- might need to instead base it off frame control bits
-        if(strstr(getSubtype(frame->frame_control.fc_subtype, frame->frame_type), "QoS") != NULL)
+        // ( ( (0b1010) & (0b1000) ) >> 3 )  = 1
+        // (((0b0000) & (0b1000)) >> 3) = 0
+        // printf("fc subtype: %X",frame->frame_control.fc_subtype);
+        if( ((frame->frame_control.fc_subtype & 0b1000 ) >> 3) )
         {
             QoS_presnet = true;
         }
@@ -396,12 +421,19 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
         {
             QoS_presnet = false;
         }
+        uint16_t qos = 0;
         
         if(QoS_presnet)
         {
             const u_char *qos_ptr = seq_ptr; // get to start of variation
             if(addr_4_present) qos_ptr = qos_ptr + OCTET_ADDRESS_SIZE;
             memcpy(&(frame->qos_control), qos_ptr, QOS_SIZE);
+            memcpy(&qos, qos_ptr, QOS_SIZE);
+            frame->qos_present = true;
+        }
+        else
+        {
+            frame->qos_present = false;
         }
         
         const u_char *ht_ptr = seq_ptr; // get to start of variation
@@ -422,6 +454,11 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
         {
             memcpy(&(frame->ht_control), ht_ptr, HT_SIZE);
             HT_present = true;
+            frame->ht_present = true;
+        }
+        else
+        {
+            frame->ht_present = false;
         }
         
         const u_char *frame_ptr = seq_ptr; // get to start of variation
@@ -430,6 +467,7 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
         {
             frame_ptr = frame_ptr + HT_SIZE;
         }
+        
         if(QoS_presnet)
         {
             frame_ptr = frame_ptr + QOS_SIZE;
@@ -440,6 +478,13 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
         }
         
         frame->frame_body_start = frame_ptr;
+        
+        if(frame->qos_present && frame->qos_control.qos_A_MSDU_present)
+        {
+            if(frame->qos_present)printf("fc QoS: %X \n",qos);
+            printf("MSDU present: %d \n", frame->qos_control.qos_A_MSDU_present);
+            printf("MSDU type: %d \n", frame->qos_control.qos_A_MSDU_type);
+        }
         
     }
     else
@@ -479,6 +524,33 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
         
     }
     
+}
+
+void process_MPDU()
+{
+    // A-MPDU can be left as they come in since they encapsulate everything needed in the normal MPDU structure.
+    
+    // 9.2.4.5.9 A-MSDU Present subfield:
+    //
+    // The A-MSDU Present subfield (B7 of QoS control) is 1 bit in length and indicates the presence of an A-MSDU.
+    // The A-MSDU Present subfield is set to 1 to indicate that the Frame Body field contains an entire A-MSDU as defined in 9.3.2.2.
+    // The A-MSDU Present subfield is set to 0 to indicate that the Frame Body field contains an MSDU or fragment thereof as defined in 9.3.2.1.
+    // NOTE—A DMG STA, when the A-MSDU Present subfield is set to 1, can use one of two A-MSDU formats in the Frame Body.
+    // The specific A-MSDU format present is indicated by the A-MSDU Type subfield.
+    
+    
+    //9.2.4.5.13 A-MSDU Type subfield
+    //
+    //The A-MSDU Type subfield (B8 of QoS control) is 1 bit in length and indicates the type of A-MSDU present in the Frame Body.
+    //When the A-MSDU Type subfield is set to 0, the Frame Body field contains a Basic A-MSDU as defined in 9.3.2.2.2.
+    //When the A-MSDU Type subfield is set to 1, the Frame Body field contains a Short A-MSDU as defined in 9.3.2.2.3.
+    //The A-MSDU Type subfield is reserved if the A-MSDU Present subfield is set to 0.
+    
+    // When a Data frame carries an MSDU, the DA and SA values related to that MSDU are carried in
+    // the Address 1, Address 2, Address 3, and Address 4 fields.
+    // Meaning: the data will start with LLC / CCMP instead of A-MSDU formatting
+    
+    // process LLC as defined in 802.2
 }
 
 void print_MAC_type(uint8_t type)
@@ -542,11 +614,12 @@ void process_80211(const u_char *buffer, uint16_t length)
     // notes:
     
     // radio tap + WLAN (actual 802.11 frame)
+
     
     MAC_header_frame_t MAC_header;
     set_MAC_header(&MAC_header,buffer);
     
-    if(MAC_header.frame_type == MAC_FRAME_TYPE_DATA)
+    if(MAC_header.frame_type == MAC_FRAME_TYPE_DATA && MAC_header.qos_present && MAC_header.qos_control.qos_A_MSDU_present)
     {
         uint16_t data_start = MAC_header.frame_body_start - buffer;
         

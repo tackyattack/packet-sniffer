@@ -187,6 +187,10 @@ void process_packet(u_char *args, const struct pcap_pkthdr *header, const u_char
 
 void start_monitor_sniffer()
 {
+    // when starting in monitor mode, it appears that the channel chosen
+    // will be whatever the channel was of the last base station you were
+    // connected to
+    
     char errbuf[PCAP_ERRBUF_SIZE];
     //char filter[] = "type mgt subtype probe-req";
     char dev[] = "en0";
