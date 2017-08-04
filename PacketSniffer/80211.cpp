@@ -6,6 +6,13 @@
 //  Copyright © 2017 Henry Bergin. All rights reserved.
 //
 
+// todo:
+// 1. read MAC service defintion
+// 2. read layer management
+// 3. read MAC sublayer functional desc
+// 4. See if MLME applies
+// 5. once you have MPDU packets, pass them to security
+
 #include <stdio.h>
 #include <sys/types.h>  // useful system types
 #include <iostream>
@@ -44,8 +51,8 @@ struct MAC_header_frame_control_t
     uint16_t fc_retry:1;                // retry flag
     uint16_t fc_power_management:1;     // power management flag
     uint16_t fc_more_data:1;            // more data flag
-    uint16_t fc_wep:1;                  // wep flag
-    uint16_t fc_order:1;                // order flag
+    uint16_t fc_protected:1;            // protected flag to show packet is encrypted
+    uint16_t fc_order:1;                // order flag / HTC+
 };
 
 struct MAC_header_duration_t
@@ -282,8 +289,6 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
     memcpy(&(frame->frame_control), MAC_offset, sizeof(frame->frame_control)); // copy in the frame control
     
     
-    // page 380 for MAC layer
-    
     // note : careful, in the docs format is b3b2
     if(!frame->frame_control.fc_typeb1 && !frame->frame_control.fc_typeb2)
     { // 0 0
@@ -351,7 +356,7 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
             memcpy(frame->address.addr1, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE, OCTET_ADDRESS_SIZE);
             memcpy(frame->address.addr2, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE, OCTET_ADDRESS_SIZE);
             memcpy(frame->address.addr3, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE, OCTET_ADDRESS_SIZE);
-            memcpy(frame->address.addr3, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE + SEQ_SIZE, OCTET_ADDRESS_SIZE); // skip sequence bytes (2)
+            memcpy(frame->address.addr4, MAC_offset + FRAME_CONTROL_SIZE + DURATION_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE + OCTET_ADDRESS_SIZE + SEQ_SIZE, OCTET_ADDRESS_SIZE); // skip sequence bytes (2)
             
             frame->address.addr1_type = MAC_ADDR_TYPE_RECEIVER;
             frame->address.addr2_type = MAC_ADDR_TYPE_TRANSMITTER;
@@ -382,6 +387,7 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
         
         bool QoS_presnet = false;
         
+        // check to make sure QoS and HT checks are correct -- might need to instead base it off frame control bits
         if(strstr(getSubtype(frame->frame_control.fc_subtype, frame->frame_type), "QoS") != NULL)
         {
             QoS_presnet = true;
@@ -408,9 +414,32 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
             ht_ptr = ht_ptr + OCTET_ADDRESS_SIZE;
         }
         
-        memcpy(&(frame->ht_control), ht_ptr, HT_SIZE);
+        bool HT_present = false;
         
-        frame->frame_body_start = ht_ptr + HT_SIZE;
+        // order/HTC+ is set to 1 in a QoS Data or Management frame transmitted with a value of HT_GF, HT_MF,
+        // or VHT for the FORMAT parameter of the TXVECTOR to indicate that the frame contains an HT Control field
+        if(frame->frame_control.fc_order)
+        {
+            memcpy(&(frame->ht_control), ht_ptr, HT_SIZE);
+            HT_present = true;
+        }
+        
+        const u_char *frame_ptr = seq_ptr; // get to start of variation
+        
+        if(HT_present)
+        {
+            frame_ptr = frame_ptr + HT_SIZE;
+        }
+        if(QoS_presnet)
+        {
+            frame_ptr = frame_ptr + QOS_SIZE;
+        }
+        if(addr_4_present)
+        {
+            frame_ptr = frame_ptr + OCTET_ADDRESS_SIZE;
+        }
+        
+        frame->frame_body_start = frame_ptr;
         
     }
     else
@@ -519,12 +548,15 @@ void process_80211(const u_char *buffer, uint16_t length)
     
     if(MAC_header.frame_type == MAC_FRAME_TYPE_DATA)
     {
+        uint16_t data_start = MAC_header.frame_body_start - buffer;
+        
         printf("----------------\n");
         printf("packet of length: %d\n",length);
         for(int i = 0; i < length; i++)
         {
             if(i%10 == 0) printf("\n");
             printf(" %02X ",buffer[i]);
+            if(i == data_start) printf("  \n FRAME DATA:\n");
         }
         printf("\n\n");
         
