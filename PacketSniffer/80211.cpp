@@ -129,6 +129,7 @@ struct MAC_header_frame_t
     
     uint8_t frame_type;
     const u_char *frame_body_start;
+    const u_char *FCS;
 };
 
 
@@ -292,7 +293,7 @@ char *getSubtype(uint16_t subtype, uint8_t type)
 //   1         1          Recv         Trans       Dest          Src
 //------------------------------------------------------------------------
 
-void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
+void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer, uint16_t length)
 {
     // radio tap format
     //-----------------
@@ -486,6 +487,9 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
             printf("MSDU type: %d \n", frame->qos_control.qos_A_MSDU_type);
         }
         
+        frame->FCS = buffer + length - 4; // end of packet and back up to the start of the FCS (32 bit)
+        //printf("FCS: %02X %02X %02X %02X\n",(frame->FCS)[0], (frame->FCS)[1], (frame->FCS)[2], (frame->FCS)[3]);
+        
     }
     else
     { // this wasn't a data frame
@@ -526,7 +530,12 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer)
     
 }
 
-void process_MPDU()
+void process_MSDU(const u_char *data_frame, uint16_t length)
+{ // pass on to LLC
+    
+}
+
+void process_MPDU(MAC_header_frame_t frame)
 {
     // A-MPDU can be left as they come in since they encapsulate everything needed in the normal MPDU structure.
     
@@ -550,7 +559,33 @@ void process_MPDU()
     // the Address 1, Address 2, Address 3, and Address 4 fields.
     // Meaning: the data will start with LLC / CCMP instead of A-MSDU formatting
     
-    // process LLC as defined in 802.2
+    bool MSDU_A_present = frame.qos_control.qos_A_MSDU_present;
+    bool MSDU_A_type = frame.qos_control.qos_A_MSDU_type;
+    
+    const u_char *MSDU_start = frame.frame_body_start; // if encrypted, you'll have to deal with that before passing on
+    
+    uint16_t data_length = frame.FCS - frame.frame_body_start;
+    
+    if(MSDU_A_present)
+    { // there's multiple MSDU
+        //uint16_t MPDU_data_length = frame.;
+        
+        // run through all MSDU subframes until data_length is reached
+        
+        if(MSDU_A_type)
+        { // short
+            
+        }
+        else
+        { // basic
+            
+        }
+    }
+    else
+    { // single MSDU
+        process_MSDU(MSDU_start, data_length);
+    }
+    
 }
 
 void print_MAC_type(uint8_t type)
@@ -617,9 +652,9 @@ void process_80211(const u_char *buffer, uint16_t length)
 
     
     MAC_header_frame_t MAC_header;
-    set_MAC_header(&MAC_header,buffer);
+    set_MAC_header(&MAC_header, buffer, length);
     
-    if(MAC_header.frame_type == MAC_FRAME_TYPE_DATA && MAC_header.qos_present && MAC_header.qos_control.qos_A_MSDU_present)
+    if(MAC_header.frame_type == MAC_FRAME_TYPE_DATA)
     {
         uint16_t data_start = MAC_header.frame_body_start - buffer;
         
@@ -636,5 +671,7 @@ void process_80211(const u_char *buffer, uint16_t length)
         print_MAC_header_addresses(MAC_header);
         printf("----------------\n");
         printf("\n\n");
+        
+        process_MPDU(MAC_header);
     }
 }
