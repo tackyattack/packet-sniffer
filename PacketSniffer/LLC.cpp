@@ -43,12 +43,16 @@ void send_LLC_UP(LLC_PDU LLC)
 void send_LLC_SNAP_UP(LLC_PDU_SNAP LLC)
 { // send the LLC up to the correct layer
     printf("\n------LLC SNAP------\n");
-    uint16_t eth_type = LLC.ether_type[1] | ((LLC.ether_type[0]) << 8); //
+    uint16_t eth_type = LLC.ether_type[1] | ((LLC.ether_type[0]) << 8); // convert to 16 bit
     printf("type: %04X\n",eth_type);
     
     if(eth_type == 0x888E)
     { // 802.1X Auth
-        printf("AUTH!!!!!!!\n");
+        printf("802.1X Auth\n");
+    }
+    else if (eth_type == 0x0800)
+    {
+        printf("IPv4\n");
     }
     
 }
