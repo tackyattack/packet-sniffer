@@ -28,6 +28,8 @@
 #include <sys/types.h>  // useful system types
 #include <iostream>
 
+#include "LLC.h"
+
 
 #define FRAME_CONTROL_SIZE 2
 #define DURATION_SIZE      2
@@ -558,6 +560,9 @@ void process_MPDU(MAC_header_frame_t frame)
     // When a Data frame carries an MSDU, the DA and SA values related to that MSDU are carried in
     // the Address 1, Address 2, Address 3, and Address 4 fields.
     // Meaning: the data will start with LLC / CCMP instead of A-MSDU formatting
+    
+    // EAPoL is never encrypted so just pass it on up to process_MSDU as you would a normal MSDU. If an MPDU is encrypted, then
+    // take care of decrypting here before passing to process_MSDU
     
     bool MSDU_A_present = frame.qos_control.qos_A_MSDU_present;
     bool MSDU_A_type = frame.qos_control.qos_A_MSDU_type;
