@@ -37,6 +37,7 @@
 #define SEQ_SIZE           2
 #define QOS_SIZE           2
 #define HT_SIZE            4
+#define FCS_SIZE           4
 
 #define MAC_ADDR_TYPE_DESTINATION    1
 #define MAC_ADDR_TYPE_SOURCE         2
@@ -428,7 +429,7 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer, uint16_t le
         
         if(QoS_presnet)
         {
-            const u_char *qos_ptr = seq_ptr; // get to start of variation
+            const u_char *qos_ptr = seq_ptr + SEQ_SIZE; // get to start of variation
             if(addr_4_present) qos_ptr = qos_ptr + OCTET_ADDRESS_SIZE;
             memcpy(&(frame->qos_control), qos_ptr, QOS_SIZE);
             memcpy(&qos, qos_ptr, QOS_SIZE);
@@ -439,7 +440,7 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer, uint16_t le
             frame->qos_present = false;
         }
         
-        const u_char *ht_ptr = seq_ptr; // get to start of variation
+        const u_char *ht_ptr = seq_ptr + SEQ_SIZE; // get to start of variation
         if(QoS_presnet)
         {
             ht_ptr = ht_ptr + QOS_SIZE;
@@ -464,7 +465,7 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer, uint16_t le
             frame->ht_present = false;
         }
         
-        const u_char *frame_ptr = seq_ptr; // get to start of variation
+        const u_char *frame_ptr = seq_ptr + SEQ_SIZE; // get to start of variation
         
         if(HT_present)
         {
@@ -475,6 +476,7 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer, uint16_t le
         {
             frame_ptr = frame_ptr + QOS_SIZE;
         }
+        
         if(addr_4_present)
         {
             frame_ptr = frame_ptr + OCTET_ADDRESS_SIZE;
@@ -489,7 +491,7 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer, uint16_t le
             printf("MSDU type: %d \n", frame->qos_control.qos_A_MSDU_type);
         }
         
-        frame->FCS = buffer + length - 4; // end of packet and back up to the start of the FCS (32 bit)
+        frame->FCS = buffer + length - FCS_SIZE; // end of packet and back up to the start of the FCS (32 bit)
         //printf("FCS: %02X %02X %02X %02X\n",(frame->FCS)[0], (frame->FCS)[1], (frame->FCS)[2], (frame->FCS)[3]);
         
     }
@@ -534,7 +536,7 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer, uint16_t le
 
 void process_MSDU(const u_char *data_frame, uint16_t length)
 { // pass on to LLC
-    
+    process_LLC(data_frame, length);
 }
 
 void process_MPDU(MAC_header_frame_t frame)
@@ -570,7 +572,6 @@ void process_MPDU(MAC_header_frame_t frame)
     const u_char *MSDU_start = frame.frame_body_start; // if encrypted, you'll have to deal with that before passing on
     
     uint16_t data_length = frame.FCS - frame.frame_body_start;
-    
     if(MSDU_A_present)
     { // there's multiple MSDU
         //uint16_t MPDU_data_length = frame.;
@@ -662,14 +663,13 @@ void process_80211(const u_char *buffer, uint16_t length)
     if(MAC_header.frame_type == MAC_FRAME_TYPE_DATA)
     {
         uint16_t data_start = MAC_header.frame_body_start - buffer;
-        
         printf("----------------\n");
         printf("packet of length: %d\n",length);
         for(int i = 0; i < length; i++)
         {
             if(i%10 == 0) printf("\n");
             printf(" %02X ",buffer[i]);
-            if(i == data_start) printf("  \n FRAME DATA:\n");
+            if(i == data_start - 1) printf("  \n FRAME DATA:\n");
         }
         printf("\n\n");
         
