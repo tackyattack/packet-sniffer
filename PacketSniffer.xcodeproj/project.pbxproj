@@ -7,9 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0202AE401F34AC1B00882EC7 /* LLC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0202AE3F1F34AC1B00882EC7 /* LLC.cpp */; };
 		023925291F32218600230F04 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 023925281F32218600230F04 /* main.cpp */; };
 		023925301F32226700230F04 /* packet_sniffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0239252F1F32226700230F04 /* packet_sniffer.cpp */; };
+		02508E861F36876900F1C19D /* aes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02508E841F364AFD00F1C19D /* aes.cpp */; };
+		02508E881F36D1D400F1C19D /* eapol_service.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02508E871F36D1D400F1C19D /* eapol_service.cpp */; };
 		02A3B2421F33C66300F6C422 /* 80211.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02A3B2411F33C66300F6C422 /* 80211.cpp */; };
+		02A8C2B61F360D450006165B /* security.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02A8C2B51F360D450006165B /* security.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,12 +29,20 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0202AE3F1F34AC1B00882EC7 /* LLC.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = LLC.cpp; sourceTree = "<group>"; };
+		0202AE411F34AC3200882EC7 /* LLC.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LLC.h; sourceTree = "<group>"; };
 		023925251F32218600230F04 /* PacketSniffer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = PacketSniffer; sourceTree = BUILT_PRODUCTS_DIR; };
 		023925281F32218600230F04 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		0239252F1F32226700230F04 /* packet_sniffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = packet_sniffer.cpp; sourceTree = "<group>"; };
 		023925311F32226F00230F04 /* packet_sniffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = packet_sniffer.h; sourceTree = "<group>"; };
+		02508E841F364AFD00F1C19D /* aes.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = aes.cpp; sourceTree = "<group>"; };
+		02508E851F364AFD00F1C19D /* aes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = aes.h; sourceTree = "<group>"; };
+		02508E871F36D1D400F1C19D /* eapol_service.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = eapol_service.cpp; sourceTree = "<group>"; };
+		02508E891F36D1DD00F1C19D /* eapol_service.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = eapol_service.h; sourceTree = "<group>"; };
 		02A3B2411F33C66300F6C422 /* 80211.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = 80211.cpp; sourceTree = "<group>"; };
 		02A3B2431F33C66D00F6C422 /* 80211.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = 80211.h; sourceTree = "<group>"; };
+		02A8C2B51F360D450006165B /* security.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = security.cpp; sourceTree = "<group>"; };
+		02A8C2B71F360D510006165B /* security.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = security.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -68,8 +80,24 @@
 				0239252F1F32226700230F04 /* packet_sniffer.cpp */,
 				02A3B2431F33C66D00F6C422 /* 80211.h */,
 				02A3B2411F33C66300F6C422 /* 80211.cpp */,
+				02A8C2B71F360D510006165B /* security.h */,
+				02A8C2B51F360D450006165B /* security.cpp */,
+				02508E891F36D1DD00F1C19D /* eapol_service.h */,
+				02508E871F36D1D400F1C19D /* eapol_service.cpp */,
+				0202AE3F1F34AC1B00882EC7 /* LLC.cpp */,
+				0202AE411F34AC3200882EC7 /* LLC.h */,
+				02508E831F364AFD00F1C19D /* AES */,
 			);
 			path = PacketSniffer;
+			sourceTree = "<group>";
+		};
+		02508E831F364AFD00F1C19D /* AES */ = {
+			isa = PBXGroup;
+			children = (
+				02508E841F364AFD00F1C19D /* aes.cpp */,
+				02508E851F364AFD00F1C19D /* aes.h */,
+			);
+			path = AES;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -128,9 +156,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				02508E861F36876900F1C19D /* aes.cpp in Sources */,
+				02508E881F36D1D400F1C19D /* eapol_service.cpp in Sources */,
 				02A3B2421F33C66300F6C422 /* 80211.cpp in Sources */,
+				02A8C2B61F360D450006165B /* security.cpp in Sources */,
 				023925291F32218600230F04 /* main.cpp in Sources */,
 				023925301F32226700230F04 /* packet_sniffer.cpp in Sources */,
+				0202AE401F34AC1B00882EC7 /* LLC.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
