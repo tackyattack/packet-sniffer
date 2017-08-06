@@ -22,6 +22,8 @@
 
 #include "_types/_uint16_t.h"
 
+#include "eapol_service.h"
+
 #define LLC_TYPE_LLC  1
 #define LLC_TYPE_SNAP 2
 
@@ -35,6 +37,8 @@
 LLC_PDU_SNAP LLC_SNAP;
 LLC_PDU      LLC;
 
+// note: make sure to strip LLC header when sending up
+
 void send_LLC_UP(LLC_PDU LLC)
 { // send the LLC up to the correct layer
     printf("\n------LLC------\n");
@@ -43,12 +47,14 @@ void send_LLC_UP(LLC_PDU LLC)
 void send_LLC_SNAP_UP(LLC_PDU_SNAP LLC)
 { // send the LLC up to the correct layer
     printf("\n------LLC SNAP------\n");
-    uint16_t eth_type = LLC.ether_type[1] | ((LLC.ether_type[0]) << 8); // convert to 16 bit
+    uint16_t eth_type = LLC.ether_type[0] | ((LLC.ether_type[1]) << 8); // convert to 16 bit
     printf("type: %04X\n",eth_type);
     
     if(eth_type == 0x888E)
     { // 802.1X Auth
         printf("802.1X Auth\n");
+        process_EAPOL_frame(LLC.data_start, LLC.data_length);
+        
     }
     else if (eth_type == 0x0800)
     {
@@ -109,6 +115,11 @@ void process_LLC(const u_char *frame_start, uint16_t data_length)
         
          memcpy(&(LLC_SNAP.org_code), frame_start + DSAP_SIZE + SSAP_SIZE + LLC_control_size, ORG_SIZE);
         memcpy(&(LLC_SNAP.ether_type), frame_start + DSAP_SIZE + SSAP_SIZE + LLC_control_size + ORG_SIZE, ETH_SIZE);
+        uint8_t temp = LLC_SNAP.ether_type[0];
+        LLC_SNAP.ether_type[0] = LLC_SNAP.ether_type[1];
+        LLC_SNAP.ether_type[1] = temp; // switch around since LSB but bytes are right to left
+        // came in:  MSB     LSB
+        //           oct1   oct0
         
         LLC_SNAP.data_start = frame_start + DSAP_SIZE + SSAP_SIZE + LLC_control_size + ORG_SIZE + ETH_SIZE;
         LLC_SNAP.data_length = data_length - (DSAP_SIZE + SSAP_SIZE + LLC_control_size + ORG_SIZE + ETH_SIZE);

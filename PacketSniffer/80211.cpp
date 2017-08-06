@@ -456,6 +456,7 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer, uint16_t le
     
 }
 
+// Data frame should always start after DA/SA/Length
 void process_MSDU(const u_char *data_frame, uint16_t length)
 { // pass on to LLC
     process_LLC(data_frame, length);
@@ -578,8 +579,8 @@ void process_80211(const u_char *buffer, uint16_t length)
     
     // radio tap + WLAN (actual 802.11 frame)
 
-    testSecurity();
-    while(1);
+    //testSecurity();
+    //while(1);
     
     MAC_header_frame_t MAC_header;
     set_MAC_header(&MAC_header, buffer, length);
