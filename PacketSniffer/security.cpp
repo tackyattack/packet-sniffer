@@ -107,7 +107,8 @@ struct CCMP_header_t
 
 //***************************************************************
 
-void CCMP_crypt_key_stream(uint8_t type, uint8_t *TK, uint8_t *nonce, uint8_t L, uint8_t M, uint16_t length)
+void CCMP_crypt_key_stream(const u_char *buffer, u_char *output, uint8_t type, uint8_t *TK,
+                           uint8_t *nonce, uint8_t L, uint8_t M, uint16_t length)
 {
     
     //********** construct key stream blocks **********//
@@ -120,7 +121,17 @@ void CCMP_crypt_key_stream(uint8_t type, uint8_t *TK, uint8_t *nonce, uint8_t L,
     //    1 ... 15-L     Nonce N
     //    16-L ... 15    Counter i
     
-    const uint8_t key = *TK;
+    uint8_t stream_size = 0;
+    
+    if(type ==  CCMP_TYPE_128)
+    {
+        stream_size = 16;
+    }
+    else if(type == CCMP_TYPE_256)
+    {
+        stream_size = 32;
+    }
+    
     const uint8_t counter_i_octet_cnt = 15 - (16 - L)  +1;
     const uint8_t nonce_octet_cnt     = (15-L) - 1     +1;
     
@@ -138,27 +149,38 @@ void CCMP_crypt_key_stream(uint8_t type, uint8_t *TK, uint8_t *nonce, uint8_t L,
     
     // message is split into 16 octet blocks
     
-    // the first key stream (0) is not (so the first two octets are not encrypted)
+    // the first key stream (0) is not used so skip it
     
-    uint8_t key_stream_block_cnt = (length / 16) + 1; // how many stream blocks to cover all the length octets?
-    uint8_t key_stream_block[16] = {0};
-    uint8_t *key_stream_blocks = (uint8_t *)malloc(sizeof(uint8_t)*key_stream_block_cnt);
+    uint8_t key_stream_block_cnt = (length / stream_size) + 2; // how many stream blocks to cover all the length octets?
+                                                               // +1 for overhead (ensures there's enough to cover msg)
+                                                               // +1 since first key stream doesn't count
+    uint8_t key_stream_block_in[16] = {0};
+    uint8_t key_stream_block_out[16] = {0};
+    uint8_t *key_stream_blocks = (uint8_t *)malloc(sizeof(uint8_t)*key_stream_block_cnt*stream_size);
     
     for(uint16_t i = 0; i < key_stream_block_cnt; i++)
     {
-        key_stream_block[0] = flags; // 0
-        memcpy(&key_stream_block[1], nonce, nonce_octet_cnt); // 1 - 13
-        // MSB!
-        key_stream_block[15] = i & 0xff; // 15
-        key_stream_block[14] = i >> 8;   // 14
+        key_stream_block_in[0] = flags; // 0
+        memcpy(&key_stream_block_in[1], nonce, nonce_octet_cnt); // 1 - 13
+        // MSB for counter!
+        key_stream_block_in[15] = i & 0xff; // 15
+        key_stream_block_in[14] = i >> 8;   // 14
         
-        memcpy(key_stream_blocks + 16*i, &key_stream_block, 16);
+        AES_ECB_encrypt(key_stream_block_in, TK, key_stream_block_out, stream_size);
+        
+        memcpy(key_stream_blocks + stream_size*i, &key_stream_block_out, stream_size);
     }
     //*************************************************//
     
+    //********** crypt message blocks **********//
+    for(uint16_t i = 0; i < length; i++)
+    {
+            output[i] = buffer[i] ^ key_stream_blocks[i+stream_size]; // XOR with stream blocks AFTER stream key 0
+    }
+    //******************************************//
+    
     
     free(key_stream_blocks);
-
 }
 
 void decrypt_CCMP_MPDU(const u_char *buffer, uint8_t *A2, uint8_t *PN, uint16_t length)
@@ -198,6 +220,20 @@ void testSecurity()
     //AES_ECB_encrypt(output, key, key_stream, 16);
     //
     uint8_t t = 0x72 ^ 0x7A;
+    
+    // 8 octets of cleartext in buffer (not encrypted)
+    const u_char test_buffer[39] = {0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x58,0x8C,0x97,0x9A,0x61,0xC6,0x63,0xD2,
+                               0xF0,0x66,0xD0,0xC2,0xC0,0xF9,0x89,0x80,0x6D,0x5F,0x6B,0x61,0xDA,0xC3,0x84,0x17,
+                               0xE8,0xD1,0x2C,0xFD,0xF9,0x26,0xE0};
+    uint8_t nonce[] = {0x00,0x00,0x00,0x03,0x02,0x01,0x00,0xA0,0xA1,0xA2,0xA3,0xA4,0xA5};
+    
+    u_char test_output[39] = {0};
+    
+    uint8_t L = 2;
+    uint8_t M = 8;
+    
+    CCMP_crypt_key_stream(test_buffer+8, test_output, CCMP_TYPE_128, key,
+                          nonce, L, M, 39-8);
     
     while(1);
 }
