@@ -18,6 +18,8 @@
 #define CCMP_TYPE_128 1
 #define CCMP_TYPE_256 2
 
+#define CCMP_HEADER_SIZE 8
+
 struct CCMP_key_id_t
 {
     uint16_t rsvd:5;
@@ -141,13 +143,11 @@ void CCMP_crypt_key_stream(const u_char *buffer, u_char *output, uint8_t type, u
     
     // IMPORTANT: Use an AES BLOCK CIPHER, not CBC since CBC already does XOR'ing and block cipher.
     //            That way you don't need the IV for CBC. The AES ECB is the most basic form, which
-    //            is what we will use since it's a clean slate to create our own mode. It is very
+    //            is what we will use since it's a clean slate to create our own mode. CCM is very
     //            similar to CTR mode.
     
     // Only the stream key is ever put through the AES. And, it's always AES encryption because
     // it's the same process on decryption.
-    
-    // message is split into 16 octet blocks
     
     // the first key stream (0) is not used so skip it
     
@@ -183,7 +183,13 @@ void CCMP_crypt_key_stream(const u_char *buffer, u_char *output, uint8_t type, u
     free(key_stream_blocks);
 }
 
-void decrypt_CCMP_MPDU(const u_char *buffer, uint8_t *A2, uint8_t *PN, uint16_t length)
+
+// buffer   : data buffer starting with CCMP header
+// output   : the array to store output in
+// A2       : address 2 of MPDU
+// priority : priority of MPDU (User priority value (UP) -> TID field of QoS Control)
+// length   : length from CCMP header start to FCS
+void decrypt_CCMP_MPDU(const u_char *buffer, u_char *output, uint8_t *A2, uint8_t priority, uint16_t length)
 { // buffer starts with CCMP header
     
     CCMP_header_t CCMP_header;
@@ -196,6 +202,22 @@ void decrypt_CCMP_MPDU(const u_char *buffer, uint8_t *A2, uint8_t *PN, uint16_t 
     CCMP_header.PN[5] = (uint8_t)buffer[7];
     
     memcpy(&(CCMP_header.key_id), &buffer[3], 1);
+    
+    const u_char *PDU = &buffer[CCMP_HEADER_SIZE];
+    
+    //********** construct aonce **********//
+    uint8_t nonce[13] = {0};
+    nonce[0] = priority & 0b00000111;
+    memcpy(&nonce[1], A2, 6);
+    memcpy(&nonce[7], CCMP_header.PN, 6);
+    //*************************************
+    
+    uint8_t TK[6] = {0};
+    
+    //********** decrypt **********//
+    memcpy(output, buffer, CCMP_HEADER_SIZE); // copy CCMP header cleartext
+    CCMP_crypt_key_stream(buffer + 8, output, CCMP_TYPE_128, TK, nonce, 2, 8, length - 8);
+    //*************************************
     
 }
 
@@ -225,6 +247,7 @@ void testSecurity()
     const u_char test_buffer[39] = {0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x58,0x8C,0x97,0x9A,0x61,0xC6,0x63,0xD2,
                                0xF0,0x66,0xD0,0xC2,0xC0,0xF9,0x89,0x80,0x6D,0x5F,0x6B,0x61,0xDA,0xC3,0x84,0x17,
                                0xE8,0xD1,0x2C,0xFD,0xF9,0x26,0xE0};
+    
     uint8_t nonce[] = {0x00,0x00,0x00,0x03,0x02,0x01,0x00,0xA0,0xA1,0xA2,0xA3,0xA4,0xA5};
     
     u_char test_output[39] = {0};
@@ -232,8 +255,7 @@ void testSecurity()
     uint8_t L = 2;
     uint8_t M = 8;
     
-    CCMP_crypt_key_stream(test_buffer+8, test_output, CCMP_TYPE_128, key,
-                          nonce, L, M, 39-8);
+    CCMP_crypt_key_stream(test_buffer+8, test_output, CCMP_TYPE_128, key, nonce, L, M, 39-8);
     
     while(1);
 }
