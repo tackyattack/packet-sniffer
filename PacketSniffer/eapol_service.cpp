@@ -182,14 +182,45 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length)
     
 }
 
-uint32_t leftrotate(uint32_t input, uint32_t cnt)
+void byte_to_hex_str(uint8_t input, char *output)
 {
-    return (input << cnt) | (input >> (32 -cnt));
+    uint32_t decimalNumber,quotient;
+    uint32_t i=0,temp;
+    decimalNumber = input;
+    quotient = decimalNumber;
+    while(quotient!=0)
+    {
+        temp = quotient % 16;
+        //To convert integer into character
+        if( temp < 10)
+        {
+            temp = temp + 48; // 0-9
+        }
+        else
+        {
+            temp = temp + 87; // a-f
+        }
+        output[i++]= temp;
+        quotient = quotient / 16;
+    }
+    
+    // switch order
+    temp = output[0];
+    output[0] = output[1];
+    output[1] = temp;
+    
+    if(output[0] == 0) output[0] = '0';
+    if(output[1] == 0) output[1] = '0';
 }
 
-void SHA_1_hash(char *message)
+uint32_t leftrotate(uint32_t input, uint32_t cnt)
 {
-    uint8_t output[20] = {0}; // 160 bit output
+    return (input << cnt) | (input >> (32 - cnt));
+}
+
+// output should be able to contain the 40 character hex string
+void SHA_1_hash(char *message, char *output)
+{
     
     uint32_t h0 = 0x67452301;
     uint32_t h1 = 0xEFCDAB89;
@@ -213,9 +244,11 @@ void SHA_1_hash(char *message)
         message_container[i] = 0x00; // pad rest of it
     }
     
-    // ml is LSB so it counts like this:
-    // [msg] [padding] 00 00 00 00 00 00 00 01
-    // [msg] [padding] 00 00 00 00 00 00 00 02
+    // <-----------------(512 bits)*N---------------->
+    // [msg] ['1'] [padding] [00 00 00 00 00 00 00 01]
+    // [msg] ['1'] [padding] [00 00 00 00 00 00 00 02]
+    // padding is 0 to 512 bits so that the whole thing
+    // becomes a multiple of 512
     
     message_container[message_block_cnt_byte_cnt-1 - 3] |= (ml & 0xff000000) >> 24;
     message_container[message_block_cnt_byte_cnt-1 - 2] |= (ml & 0x00ff0000) >> 16;
@@ -223,6 +256,8 @@ void SHA_1_hash(char *message)
     message_container[message_block_cnt_byte_cnt-1 - 0] |= (ml & 0x000000ff); // OR with the one closest to the padding incase
                                                                               // there's none, in which case it might need to cut
                                                                               // into byte with the appended '1' bit
+                                                                              // but it would have to be a message length of
+                                                                              // 2^(64-1) / 8 bytes long, which is crazy
     for(uint32_t m = 0; m < message_block_cnt_byte_cnt;)
     { // deal with data in 512 bit chunks
         uint32_t w[80];
@@ -307,12 +342,83 @@ void SHA_1_hash(char *message)
         
     }
     
+    uint32_t current_word = 0;
+    uint8_t word_cnt = 0;
+    
+    uint8_t hex_holder[20] = {0};
+    
+    for(uint16_t i = 0; i < 20;)
+    {
+        if(word_cnt == 0)
+        {
+            current_word = h0;
+        }
+        else if(word_cnt == 1)
+        {
+            current_word = h1;
+        }
+        else if(word_cnt == 2)
+        {
+            current_word = h2;
+        }
+        else if(word_cnt == 3)
+        {
+            current_word = h3;
+        }
+        else if(word_cnt == 4)
+        {
+            current_word = h4;
+        }
+        
+        hex_holder[i++] = (current_word & 0xff000000) >> 24;
+        hex_holder[i++] = (current_word & 0x00ff0000) >> 16;
+        hex_holder[i++] = (current_word & 0x0000ff00) >> 8;
+        hex_holder[i++] = (current_word & 0x000000ff);
+        word_cnt++;
+    }
+    
+    char hex_char[2];
+    
+    for(uint16_t i = 0; i < 40;)
+    {
+        byte_to_hex_str(hex_holder[i/2], hex_char);
+        output[i++] = hex_char[0];
+        output[i++] = hex_char[1];
+    }
+    
     printf("%x%x%x%x%x\n",h0,h1,h2,h3,h4);
     printf("done\n");
     
-    
-    
+    free(message_container);
 }
+
+void HMAC(char *input_key, char *intput_message)
+{
+    const uint16_t blocksize = 64;
+    
+    char *key = (char *)malloc(sizeof(char)*strlen(input_key));
+    strcpy(key, input_key);
+    
+    if(strlen(key) > blocksize)
+    {
+        
+    }
+}
+
+//function hmac (key, message) {
+//    if (length(key) > blocksize) {
+//        key = hash(key) // keys longer than blocksize are shortened
+//    }
+//    if (length(key) < blocksize) {
+//        // keys shorter than blocksize are zero-padded (where ∥ is concatenation)
+//        key = key ∥ [0x00 * (blocksize - length(key))] // Where * is repetition.
+//    }
+//
+//    o_key_pad = [0x5c * blocksize] ⊕ key // Where blocksize is that of the underlying hash function
+//    i_key_pad = [0x36 * blocksize] ⊕ key // Where ⊕ is exclusive or (XOR)
+//
+//    return hash(o_key_pad ∥ hash(i_key_pad ∥ message)) // Where ∥ is concatenation
+//}
 
 // SHA-1 hash:
 // https://en.wikipedia.org/wiki/SHA-1
@@ -338,9 +444,9 @@ void SHA_1_hash(char *message)
 //  1. append the bit '1' to the message e.g. by adding 0x80 if message length is a multiple of 8 bits.
 //  2. append 0 ≤ k < 512 bits '0', such that the resulting message length in bits
 //  is congruent to −64 ≡ 448 (mod 512)
-//  -> means pad the end of the message with   0 ≤ k < 512  '0' bits so that it reaches it can be broken into 512 chunks including the
+//  -> means pad the end of the message with   0 ≤ k < 512  '0' bits so that it can be broken into 512 chunks including the
 //     64 bit message size at the very end (next step below)
-//  3. append ml, the original message length, as a 64-bit big-endian integer.
+//  3. append ml, the original message length, as a 64-bit big-endian integer. (stored MSB first)
 //     Thus, the total length is a multiple of 512 bits.
 //
 //  Process the message in successive 512-bit chunks:
@@ -392,7 +498,7 @@ void SHA_1_hash(char *message)
 //  hh = (h0 leftshift 128) or (h1 leftshift 96) or (h2 leftshift 64) or (h3 leftshift 32) or h4
 
 // HMAC:
-
+// https://en.wikipedia.org/wiki/Hash-based_message_authentication_code
 //function hmac (key, message) {
 //    if (length(key) > blocksize) {
 //        key = hash(key) // keys longer than blocksize are shortened
@@ -427,13 +533,22 @@ void convert_WPA_to_PSK(char *password, char *SSID, uint8_t *output)
 
 void EAPOL_test()
 {
+//    char hex[2] = {0};
+//    byte_to_hex_str(0x0f,hex);
+//    printf("%c%c",hex[0],hex[1]);
+//    printf("\n");
+//    while(1);
+    
     char test_hash[] = "The quick brown fox jumps over the lazy dog";
     // should get: 2fd4e1c67a2d28fced849ee1bb76e7391b93eb12
     char test_hash2[] = "abc";
     // should get: a9993e36 4706816a ba3e2571 7850c26c 9cd0d89d
     char test_hash3[] = "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu";
     // should get: a49b2446 a02c645b f419f995 b6709125 3a04a259
-    SHA_1_hash(test_hash); 
+    
+    char output[40] = {0};
+    
+    SHA_1_hash(test_hash, output);
     while(1);
     
     char pw[] = "password";
