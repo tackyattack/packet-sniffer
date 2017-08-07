@@ -433,7 +433,7 @@ void EAPOL_test()
     // should get: a9993e36 4706816a ba3e2571 7850c26c 9cd0d89d
     char test_hash3[] = "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu";
     // should get: a49b2446 a02c645b f419f995 b6709125 3a04a259
-    SHA_1_hash(test_hash3);
+    SHA_1_hash(test_hash);
     while(1);
     
     char pw[] = "password";
