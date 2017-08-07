@@ -393,7 +393,7 @@ void SHA_1_hash(const char *message, char *output)
     free(message_container);
 }
 
-void HMAC(char *input_key, char *intput_message)
+void HMAC(char *input_key, char *input_message)
 {
     const uint16_t blocksize = 64;
     
@@ -422,8 +422,27 @@ void HMAC(char *input_key, char *intput_message)
         i_key_pad[i] = key[i] ^ 0x36;
     }
     
+    uint16_t inner_hash_size = strlen(i_key_pad) + strlen(input_message);
+    char *inner_hash = (char *)malloc(sizeof(char)*inner_hash_size);
+    strcpy(inner_hash, i_key_pad);
+    strcat(inner_hash, input_message);
+    char inner_hash_output[40] = {0};
+    SHA_1_hash(inner_hash, inner_hash_output);
+    
+    uint16_t outer_hash_size = strlen(o_key_pad) + strlen(inner_hash);
+    char *outer_hash = (char *)malloc(sizeof(char)*outer_hash_size);
+    strcpy(outer_hash, o_key_pad);
+    strcat(outer_hash, inner_hash);
+    char outer_hash_output[40] = {0};
+    SHA_1_hash(outer_hash, outer_hash_output);
+    
     
     char output[40] = {0};
+    
+    strcpy(output, outer_hash_output);
+    
+    free(inner_hash);
+    free(outer_hash);
 }
 
 //function hmac (key, message) {
@@ -559,6 +578,11 @@ void EAPOL_test()
 //    printf("%c%c",hex[0],hex[1]);
 //    printf("\n");
 //    while(1);
+    char key[] = "key";
+    char msg[] = "The quick brown fox jumps over the lazy dog";
+    HMAC(key,msg);
+    
+    while(1);
     
     char test_hash[] = "The quick brown fox jumps over the lazy dog";
     // should get: 2fd4e1c67a2d28fced849ee1bb76e7391b93eb12
