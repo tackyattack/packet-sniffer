@@ -218,8 +218,8 @@ uint32_t leftrotate(uint32_t input, uint32_t cnt)
     return (input << cnt) | (input >> (32 - cnt));
 }
 
-// output should be able to contain the 40 character hex string
-void SHA_1_hash(char *message, char *output)
+// output should be able to contain the 40 character hex string (160 bits, 4 bits per hex char)
+void SHA_1_hash(const char *message, char *output)
 {
     
     uint32_t h0 = 0x67452301;
@@ -397,13 +397,32 @@ void HMAC(char *input_key, char *intput_message)
 {
     const uint16_t blocksize = 64;
     
-    char *key = (char *)malloc(sizeof(char)*strlen(input_key));
+    char key[blocksize] = {0};
     strcpy(key, input_key);
     
     if(strlen(key) > blocksize)
-    {
-        
+    { // is the original key greater than the block size?
+        SHA_1_hash(input_key, key); // hash the key to make it shorter
     }
+    
+    if(strlen(key) < blocksize)
+    { // pad with zeros if the key is now less than the block size
+        for(uint16_t i = strlen(key); i < blocksize; i++)
+        { // k e y e x a m p l e \0
+            key[i] = '0';
+        }
+    }
+    
+    char o_key_pad[blocksize] = {0};
+    char i_key_pad[blocksize] = {0};
+    
+    for(uint16_t i = 0; i < blocksize; i++)
+    {
+        o_key_pad[i] = key[i] ^ 0x5c;
+        i_key_pad[i] = key[i] ^ 0x36;
+    }
+    
+    char output[40] = {0};
 }
 
 //function hmac (key, message) {
