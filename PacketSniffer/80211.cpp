@@ -32,6 +32,8 @@
 #include "80211.h"
 #include "security.h"
 
+#include "eapol_service.h"
+
 
 #define FRAME_CONTROL_SIZE 2
 #define DURATION_SIZE      2
@@ -579,8 +581,9 @@ void process_80211(const u_char *buffer, uint16_t length)
     
     // radio tap + WLAN (actual 802.11 frame)
 
+    EAPOL_test();
     //testSecurity();
-    //while(1);
+    while(1);
     
     MAC_header_frame_t MAC_header;
     set_MAC_header(&MAC_header, buffer, length);

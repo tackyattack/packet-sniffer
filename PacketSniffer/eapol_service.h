@@ -22,4 +22,6 @@
 
 void process_EAPOL_frame(const u_char *data_frame, uint16_t length);
 
+void EAPOL_test();
+
 #endif /* eapol_service_h */

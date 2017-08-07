@@ -22,7 +22,9 @@
 
 #include "eapol_service.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 struct key_info_t
 {
@@ -180,287 +182,160 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length)
     
 }
 
-/* pad string to 64 bytes and convert to 16 32-bit words */
-uint32_t z[80] = {0};
-uint32_t *stringtowords(char *s, uint8_t padi)
+void SHA_1_hash(char *message)
 {
-    for(uint8_t i = 0; i < 80; i++) z[i]=0;
-    /* return a 80-word array for later use in the SHA1 code */
-    uint8_t j = -1, k = 0;
-    uint8_t n = strlen(s);
-    for (uint16_t i = 0; i < 64; i++) {
-        uint8_t c = 0;
-        if (i < n) {
-            c = (uint8_t)s[i];
-        } else if (padi)
-        {
-            /* add 4-byte PBKDF2 block index and
-             standard padding for the final SHA1 input block */
-            if (i == n) c = (padi >> 24) & 0xff;
-            else if (i == n + 1) c = (padi >> 16) & 0xff;
-            else if (i == n + 2) c = (padi >> 8) & 0xff;
-            else if (i == n + 3) c = padi & 0xff;
-            else if (i == n + 4) c = 0x80;
-        }
-        if (k == 0) { j++; z[j] = 0; k = 32; }
-        k -= 8;
-        z[j] = z[j] | (c << k);
+    uint8_t output[20] = {0}; // 160 bit output
+    
+    uint32_t h0 = 0x67452301;
+    uint32_t h1 = 0xEFCDAB89;
+    uint32_t h2 = 0x98BADCFE;
+    uint32_t h3 = 0x10325476;
+    uint32_t h4 = 0xC3D2E1F0;
+    
+    uint32_t ml = (uint32_t)strlen(message);
+    
+    uint32_t message_bit_len = ml*8 + 1 + 64; // adding the '1' bit and 64 bit message length variable
+    uint32_t message_block_cnt = ceil(message_bit_len / 512.0);
+    uint32_t padding_bit_cnt = message_block_cnt*512 - message_bit_len - 64; // find the gap to fill
+    uint32_t message_block_cnt_byte_cnt = message_block_cnt*512/8;
+    uint8_t *message_container = (uint8_t *)malloc(sizeof(uint8_t)*message_block_cnt_byte_cnt);
+    
+    memcpy(message_container, message, ml);
+    message_container[ml] = 0b10000000; // add in a '1' bit closest to previous byte
+    
+    for(uint32_t i = ml + 1; i < message_block_cnt_byte_cnt; i++)
+    {
+        message_container[i] = 0x00; // pad rest of it
     }
-    if (padi) z[15] = 8 * (64 + n + 4);
-    return z;
+    
+    message_container[message_block_cnt_byte_cnt - 1] = ;
+    
+    
+    
+    
+    
 }
 
-/* compute the intermediate SHA1 state after processing just
- the 64-byte padded HMAC key */
-uint32_t ss[5] = {0};
-uint32_t *initsha(uint32_t *w, uint8_t padbyte) {
-    
-    uint32_t pw = (padbyte << 24) | (padbyte << 16) | (padbyte << 8) | padbyte;
-    for (uint16_t t = 0; t < 16; t++) w[t] ^= pw;
-    
-    ss[0] = 0x67452301;
-    ss[1] = 0xEFCDAB89;
-    ss[2] = 0x98BADCFE;
-    ss[3] = 0x10325476;
-    ss[4] = 0xC3D2E1F0;
-    
-    uint32_t a = ss[0], b = ss[1], c = ss[2], d = ss[3], e = ss[4];
-    uint32_t t;
-    for (uint16_t k = 16; k < 80; k++) {
-        t = w[k-3] ^ w[k-8] ^ w[k-14] ^ w[k-16];
-        w[k] = (t<<1) | (t>>31);
+// SHA-1 hash:
+// https://en.wikipedia.org/wiki/SHA-1
+
+//  Note 1: All variables are unsigned 32-bit quantities and wrap modulo 2^32 when calculating, except for
+//  ml, the message length, which is a 64-bit quantity, and
+//  hh, the message digest, which is a 160-bit quantity.
+//  Note 2: All constants in this pseudo code are in big endian.
+//  Within each word, the most significant byte is stored in the leftmost byte position
+//
+//  Initialize variables:
+//
+//  h0 = 0x67452301
+//  h1 = 0xEFCDAB89
+//  h2 = 0x98BADCFE
+//  h3 = 0x10325476
+//  h4 = 0xC3D2E1F0
+//
+//  ml = message length in bits (always a multiple of the number of bits in a character).
+//-
+//  Pre-processing:
+//  1. append the bit '1' to the message e.g. by adding 0x80 if message length is a multiple of 8 bits.
+//  2. append 0 ≤ k < 512 bits '0', such that the resulting message length in bits
+//  is congruent to −64 ≡ 448 (mod 512)
+//  -> means pad the end of the message with   0 ≤ k < 512  '0' bits so that it reaches it can be broken into 512 chunks including the
+//     64 bit message size at the very end (next step below)
+//  3. append ml, the original message length, as a 64-bit big-endian integer.
+//     Thus, the total length is a multiple of 512 bits.
+//
+//  Process the message in successive 512-bit chunks:
+//  break message into 512-bit chunks
+//  for each chunk
+//  break chunk into sixteen 32-bit big-endian words w[i], 0 ≤ i ≤ 15
+//
+//  Extend the sixteen 32-bit words into eighty 32-bit words:
+//  for i from 16 to 79
+//  w[i] = (w[i-3] xor w[i-8] xor w[i-14] xor w[i-16]) leftrotate 1
+//
+//  Initialize hash value for this chunk:
+//  a = h0
+//  b = h1
+//  c = h2
+//  d = h3
+//  e = h4
+//
+//  Main loop:[3][53]
+//  for i from 0 to 79
+//  if 0 ≤ i ≤ 19 then
+//  f = (b and c) or ((not b) and d)
+//  k = 0x5A827999
+//  else if 20 ≤ i ≤ 39
+//  f = b xor c xor d
+//  k = 0x6ED9EBA1
+//  else if 40 ≤ i ≤ 59
+//  f = (b and c) or (b and d) or (c and d)
+//  k = 0x8F1BBCDC
+//  else if 60 ≤ i ≤ 79
+//  f = b xor c xor d
+//  k = 0xCA62C1D6
+//
+//  temp = (a leftrotate 5) + f + e + k + w[i]
+//  e = d
+//  d = c
+//  c = b leftrotate 30
+//  b = a
+//  a = temp
+//
+//  Add this chunk's hash to result so far:
+//  h0 = h0 + a
+//  h1 = h1 + b
+//  h2 = h2 + c
+//  h3 = h3 + d
+//  h4 = h4 + e
+//
+//  Produce the final hash value (big-endian) as a 160-bit number:
+//  hh = (h0 leftshift 128) or (h1 leftshift 96) or (h2 leftshift 64) or (h3 leftshift 32) or h4
+
+// HMAC:
+
+//function hmac (key, message) {
+//    if (length(key) > blocksize) {
+//        key = hash(key) // keys longer than blocksize are shortened
+//    }
+//    if (length(key) < blocksize) {
+//        // keys shorter than blocksize are zero-padded (where ∥ is concatenation)
+//        key = key ∥ [0x00 * (blocksize - length(key))] // Where * is repetition.
+//    }
+//    
+//    o_key_pad = [0x5c * blocksize] ⊕ key // Where blocksize is that of the underlying hash function
+//    i_key_pad = [0x36 * blocksize] ⊕ key // Where ⊕ is exclusive or (XOR)
+//    
+//    return hash(o_key_pad ∥ hash(i_key_pad ∥ message)) // Where ∥ is concatenation
+//}
+
+
+//  hLen:    length in octets of pseudorandom function output, a positive integer
+
+void PBKDF2(char *P, char *S, uint16_t c, uint16_t dkLen)
+{
+    uint16_t hlen = 0;
+    if( dkLen > ( 0xffffffff - 1)*hlen )
+    {
+        return;
     }
-    for (uint16_t k = 0; k < 20; k++) {
-        t = ((a<<5) | (a>>27)) + e + w[k] + 0x5A827999 + ((b&c)|((~b)&d));
-        e = d; d = c; c = (b<<30) | (b>>2); b = a; a = t & 0xffffffff;
-    }
-    for (uint16_t k = 20; k < 40; k++) {
-        t = ((a<<5) | (a>>27)) + e + w[k] + 0x6ED9EBA1 + (b^c^d);
-        e = d; d = c; c = (b<<30) | (b>>2); b = a; a = t & 0xffffffff;
-    }
-    for (uint16_t k = 40; k < 60; k++) {
-        t = ((a<<5) | (a>>27)) + e + w[k] + 0x8F1BBCDC + ((b&c)|(b&d)|(c&d));
-        e = d; d = c; c = (b<<30) | (b>>2); b = a; a = t & 0xffffffff;
-    }
-    for (uint16_t k = 60; k < 80; k++) {
-        t = ((a<<5) | (a>>27)) + e + w[k] + 0xCA62C1D6 + (b^c^d);
-        e = d; d = c; c = (b<<30) | (b>>2); b = a; a = t & 0xffffffff;
-    }
-    ss[0] = (ss[0] + a) & 0xffffffff;
-    ss[1] = (ss[1] + b) & 0xffffffff;
-    ss[2] = (ss[2] + c) & 0xffffffff;
-    ss[3] = (ss[3] + d) & 0xffffffff;
-    ss[4] = (ss[4] + e) & 0xffffffff;
-    return s;
 }
 
 void convert_WPA_to_PSK(char *password, char *SSID, uint8_t *output)
 {
-    /* compute the intermediate SHA1 state of the inner and outer parts
-     of the HMAC algorithm after processing the padded HMAC key */
-    uint32_t *hmac_istate = initsha(stringtowords(password, 0), 0x36);
-    uint32_t *hmac_ostate = initsha(stringtowords(password, 0), 0x5c);
-    
-    /* output is created in blocks of 20 bytes at a time and collected
-     in a string as hexadecimal digits */
-    char hash[64] = {0};
-    uint16_t i = 0;
-    while (strlen(hash) < 64) {
-        /* prepare 20-byte (5-word) output vector */
-        uint32_t u[] = {0, 0, 0, 0, 0};
-        /* prepare input vector for the first SHA1 update (salt + block number) */
-        i++;
-        uint32_t *w = stringtowords(SSID, i);
-        /* iterate 4096 times an inner and an outer SHA1 operation */
-        for (uint32_t j = 0; j < 2 * 4096; j++) {
-            /* alternate inner and outer SHA1 operations */
-            uint32_t *s = (j & 1) ? hmac_ostate : hmac_istate;
-            /* inline the SHA1 update operation */
-            uint32_t a = s[0], b = s[1], c = s[2], d = s[3], e = s[4];
-            var t;
-            for (var k = 16; k < 80; k++) {
-                t = w[k-3] ^ w[k-8] ^ w[k-14] ^ w[k-16];
-                w[k] = (t<<1) | (t>>>31);
-            }
-            for (var k = 0; k < 20; k++) {
-                t = ((a<<5) | (a>>>27)) + e + w[k] + 0x5A827999 + ((b&c)|((~b)&d));
-                e = d; d = c; c = (b<<30) | (b>>>2); b = a; a = t & 0xffffffff;
-            }
-            for (var k = 20; k < 40; k++) {
-                t = ((a<<5) | (a>>>27)) + e + w[k] + 0x6ED9EBA1 + (b^c^d);
-                e = d; d = c; c = (b<<30) | (b>>>2); b = a; a = t & 0xffffffff;
-            }
-            for (var k = 40; k < 60; k++) {
-                t = ((a<<5) | (a>>>27)) + e + w[k] + 0x8F1BBCDC + ((b&c)|(b&d)|(c&d));
-                e = d; d = c; c = (b<<30) | (b>>>2); b = a; a = t & 0xffffffff;
-            }
-            for (var k = 60; k < 80; k++) {
-                t = ((a<<5) | (a>>>27)) + e + w[k] + 0xCA62C1D6 + (b^c^d);
-                e = d; d = c; c = (b<<30) | (b>>>2); b = a; a = t & 0xffffffff;
-            }
-            /* stuff the SHA1 output back into the input vector */
-            w[0] = (s[0] + a) & 0xffffffff;
-            w[1] = (s[1] + b) & 0xffffffff;
-            w[2] = (s[2] + c) & 0xffffffff;
-            w[3] = (s[3] + d) & 0xffffffff;
-            w[4] = (s[4] + e) & 0xffffffff;
-            if (j & 1) {
-                /* XOR the result of each complete HMAC-SHA1 operation into u */
-                u[0] ^= w[0]; u[1] ^= w[1]; u[2] ^= w[2]; u[3] ^= w[3]; u[4] ^= w[4];
-            } else if (j == 0) {
-                /* pad the new 20-byte input vector for subsequent SHA1 operations */
-                w[5] = 0x80000000;
-                for (var k = 6; k < 15; k++) w[k] = 0;
-                w[15] = 8 * (64 + 20);
-            }
-        }
-        /* convert output vector u to hex and append to output string */
-        for (var j = 0; j < 5; j++)
-            for (var k = 0; k < 8; k++) {
-                var t = (u[j] >>> (28 - 4 * k)) & 0x0f;
-                hash += (t < 10) ? t : String.fromCharCode(87 + t);
-            }
-    }
-    
-    /* return the first 32 key bytes as a hexadecimal string */
-    return hash.substring(0, 64);
+    PBKDF2(password, SSID, 4096, 256/8);
 }
 
-// JavaScript WPA -> PSK example
-//function getWpaPskKeyFromPassphrase(pass, salt) {
-//
-//    /* pad string to 64 bytes and convert to 16 32-bit words */
-//    function stringtowords(s, padi) {
-//        /* return a 80-word array for later use in the SHA1 code */
-//        var z = new Array(80);
-//        var j = -1, k = 0;
-//        var n = s.length;
-//        for (var i = 0; i < 64; i++) {
-//            var c = 0;
-//            if (i < n) {
-//                c = s.charCodeAt(i);
-//            } else if (padi) {
-//                /* add 4-byte PBKDF2 block index and
-//                 standard padding for the final SHA1 input block */
-//                if (i == n) c = (padi >>> 24) & 0xff;
-//                else if (i == n + 1) c = (padi >>> 16) & 0xff;
-//                else if (i == n + 2) c = (padi >>> 8) & 0xff;
-//                else if (i == n + 3) c = padi & 0xff;
-//                else if (i == n + 4) c = 0x80;
-//            }
-//            if (k == 0) { j++; z[j] = 0; k = 32; }
-//            k -= 8;
-//            z[j] = z[j] | (c << k);
-//        }
-//        if (padi) z[15] = 8 * (64 + n + 4);
-//        return z;
-//    }
-//    
-//    /* compute the intermediate SHA1 state after processing just
-//     the 64-byte padded HMAC key */
-//    function initsha(w, padbyte) {
-//        var pw = (padbyte << 24) | (padbyte << 16) | (padbyte << 8) | padbyte;
-//        for (var t = 0; t < 16; t++) w[t] ^= pw;
-//        var s = [ 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0 ];
-//        var a = s[0], b = s[1], c = s[2], d = s[3], e = s[4];
-//        var t;
-//        for (var k = 16; k < 80; k++) {
-//            t = w[k-3] ^ w[k-8] ^ w[k-14] ^ w[k-16];
-//            w[k] = (t<<1) | (t>>>31);
-//        }
-//        for (var k = 0; k < 20; k++) {
-//            t = ((a<<5) | (a>>>27)) + e + w[k] + 0x5A827999 + ((b&c)|((~b)&d));
-//            e = d; d = c; c = (b<<30) | (b>>>2); b = a; a = t & 0xffffffff;
-//        }
-//        for (var k = 20; k < 40; k++) {
-//            t = ((a<<5) | (a>>>27)) + e + w[k] + 0x6ED9EBA1 + (b^c^d);
-//            e = d; d = c; c = (b<<30) | (b>>>2); b = a; a = t & 0xffffffff;
-//        }
-//        for (var k = 40; k < 60; k++) {
-//            t = ((a<<5) | (a>>>27)) + e + w[k] + 0x8F1BBCDC + ((b&c)|(b&d)|(c&d));
-//            e = d; d = c; c = (b<<30) | (b>>>2); b = a; a = t & 0xffffffff;
-//        }
-//        for (var k = 60; k < 80; k++) {
-//            t = ((a<<5) | (a>>>27)) + e + w[k] + 0xCA62C1D6 + (b^c^d);
-//            e = d; d = c; c = (b<<30) | (b>>>2); b = a; a = t & 0xffffffff;
-//        }
-//        s[0] = (s[0] + a) & 0xffffffff;
-//        s[1] = (s[1] + b) & 0xffffffff;
-//        s[2] = (s[2] + c) & 0xffffffff;
-//        s[3] = (s[3] + d) & 0xffffffff;
-//        s[4] = (s[4] + e) & 0xffffffff;
-//        return s;
-//    }
-//    
-//    /* compute the intermediate SHA1 state of the inner and outer parts
-//     of the HMAC algorithm after processing the padded HMAC key */
-//    var hmac_istate = initsha(stringtowords(pass, 0), 0x36);
-//    var hmac_ostate = initsha(stringtowords(pass, 0), 0x5c);
-//    
-//    /* output is created in blocks of 20 bytes at a time and collected
-//     in a string as hexadecimal digits */
-//    var hash = '';
-//    var i = 0;
-//    while (hash.length < 64) {
-//        /* prepare 20-byte (5-word) output vector */
-//        var u = [ 0, 0, 0, 0, 0 ];
-//        /* prepare input vector for the first SHA1 update (salt + block number) */
-//        i++;
-//        var w = stringtowords(salt, i);
-//        /* iterate 4096 times an inner and an outer SHA1 operation */
-//        for (var j = 0; j < 2 * 4096; j++) {
-//            /* alternate inner and outer SHA1 operations */
-//            var s = (j & 1) ? hmac_ostate : hmac_istate;
-//            /* inline the SHA1 update operation */
-//            var a = s[0], b = s[1], c = s[2], d = s[3], e = s[4];
-//            var t;
-//            for (var k = 16; k < 80; k++) {
-//                t = w[k-3] ^ w[k-8] ^ w[k-14] ^ w[k-16];
-//                w[k] = (t<<1) | (t>>>31);
-//            }
-//            for (var k = 0; k < 20; k++) {
-//                t = ((a<<5) | (a>>>27)) + e + w[k] + 0x5A827999 + ((b&c)|((~b)&d));
-//                e = d; d = c; c = (b<<30) | (b>>>2); b = a; a = t & 0xffffffff;
-//            }
-//            for (var k = 20; k < 40; k++) {
-//                t = ((a<<5) | (a>>>27)) + e + w[k] + 0x6ED9EBA1 + (b^c^d);
-//                e = d; d = c; c = (b<<30) | (b>>>2); b = a; a = t & 0xffffffff;
-//            }
-//            for (var k = 40; k < 60; k++) {
-//                t = ((a<<5) | (a>>>27)) + e + w[k] + 0x8F1BBCDC + ((b&c)|(b&d)|(c&d));
-//                e = d; d = c; c = (b<<30) | (b>>>2); b = a; a = t & 0xffffffff;
-//            }
-//            for (var k = 60; k < 80; k++) {
-//                t = ((a<<5) | (a>>>27)) + e + w[k] + 0xCA62C1D6 + (b^c^d);
-//                e = d; d = c; c = (b<<30) | (b>>>2); b = a; a = t & 0xffffffff;
-//            }
-//            /* stuff the SHA1 output back into the input vector */
-//            w[0] = (s[0] + a) & 0xffffffff;
-//            w[1] = (s[1] + b) & 0xffffffff;
-//            w[2] = (s[2] + c) & 0xffffffff;
-//            w[3] = (s[3] + d) & 0xffffffff;
-//            w[4] = (s[4] + e) & 0xffffffff;
-//            if (j & 1) {
-//                /* XOR the result of each complete HMAC-SHA1 operation into u */
-//                u[0] ^= w[0]; u[1] ^= w[1]; u[2] ^= w[2]; u[3] ^= w[3]; u[4] ^= w[4];
-//            } else if (j == 0) {
-//                /* pad the new 20-byte input vector for subsequent SHA1 operations */
-//                w[5] = 0x80000000;
-//                for (var k = 6; k < 15; k++) w[k] = 0;
-//                w[15] = 8 * (64 + 20);
-//            }
-//        }
-//        /* convert output vector u to hex and append to output string */
-//        for (var j = 0; j < 5; j++)
-//            for (var k = 0; k < 8; k++) {
-//                var t = (u[j] >>> (28 - 4 * k)) & 0x0f;
-//                hash += (t < 10) ? t : String.fromCharCode(87 + t);
-//            }
-//    }
-//    
-//    /* return the first 32 key bytes as a hexadecimal string */
-//    return hash.substring(0, 64);
-//}
+void EAPOL_test()
+{
+    char test_hash[] = "helloworld";
+    SHA_1_hash(test_hash);
+    while(1);
+    
+    char pw[] = "password";
+    char ssid[] = "IEEE";
+    convert_WPA_to_PSK(pw, ssid, NULL);
+}
 
 
 
