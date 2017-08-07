@@ -182,6 +182,11 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length)
     
 }
 
+uint32_t leftrotate(uint32_t input, uint32_t cnt)
+{
+    return (input << cnt) | (input >> (32 -cnt));
+}
+
 void SHA_1_hash(char *message)
 {
     uint8_t output[20] = {0}; // 160 bit output
@@ -192,25 +197,118 @@ void SHA_1_hash(char *message)
     uint32_t h3 = 0x10325476;
     uint32_t h4 = 0xC3D2E1F0;
     
-    uint32_t ml = (uint32_t)strlen(message);
+    uint32_t ml = (uint32_t)strlen(message)*8;
     
-    uint32_t message_bit_len = ml*8 + 1 + 64; // adding the '1' bit and 64 bit message length variable
+    uint32_t message_bit_len = ml + 1 + 64; // adding the '1' bit and 64 bit message length variable
     uint32_t message_block_cnt = ceil(message_bit_len / 512.0);
-    uint32_t padding_bit_cnt = message_block_cnt*512 - message_bit_len - 64; // find the gap to fill
+    //uint32_t padding_bit_cnt = message_block_cnt*512 - message_bit_len - 64; // find the gap to fill
     uint32_t message_block_cnt_byte_cnt = message_block_cnt*512/8;
     uint8_t *message_container = (uint8_t *)malloc(sizeof(uint8_t)*message_block_cnt_byte_cnt);
     
-    memcpy(message_container, message, ml);
-    message_container[ml] = 0b10000000; // add in a '1' bit closest to previous byte
+    memcpy(message_container, message, ml/8);
+    message_container[ml/8] = 0b10000000; // add in a '1' bit closest to previous byte
     
-    for(uint32_t i = ml + 1; i < message_block_cnt_byte_cnt; i++)
+    for(uint32_t i = ml/8 + 1; i < message_block_cnt_byte_cnt; i++)
     {
         message_container[i] = 0x00; // pad rest of it
     }
     
-    message_container[message_block_cnt_byte_cnt - 1] = ;
+    // ml is LSB so it counts like this:
+    // [msg] [padding] 00 00 00 00 00 00 00 01
+    // [msg] [padding] 00 00 00 00 00 00 00 02
     
+    message_container[message_block_cnt_byte_cnt-1 - 3] |= (ml & 0xff000000) >> 24;
+    message_container[message_block_cnt_byte_cnt-1 - 2] |= (ml & 0x00ff0000) >> 16;
+    message_container[message_block_cnt_byte_cnt-1 - 1] |= (ml & 0x0000ff00) >> 8;
+    message_container[message_block_cnt_byte_cnt-1 - 0] |= (ml & 0x000000ff); // OR with the one closest to the padding incase
+                                                                              // there's none, in which case it might need to cut
+                                                                              // into byte with the appended '1' bit
+    for(uint32_t m = 0; m < message_block_cnt_byte_cnt;)
+    { // deal with data in 512 bit chunks
+        uint32_t w[80];
+        uint8_t chunk[64];
+        
+        // get message chunk
+        for(uint32_t n = 0; n < 64; n++)
+        {
+            chunk[n] = message_container[m];
+            m++;
+        }
+        
+        // copy to word chunk in 32 bit MSB
+        uint32_t j = 0;
+        for(uint32_t n = 0; n < 16; n++)
+        {
+            w[n] = chunk[j] << 24 | chunk[j+1] << 16 | chunk[j+2] << 8 | chunk[j+3];
+            j = j + 4;
+        }
+        
+        //extend to 80 words
+        for(uint32_t n = 16; n < 80; n++)
+        {
+            w[n] = (w[n-3] ^ w[n-8] ^ w[n-14] ^ w[n-16]);
+            w[n] = leftrotate(w[n],1);
+        }
+        
+        uint32_t a = h0;
+        uint32_t b = h1;
+        uint32_t c = h2;
+        uint32_t d = h3;
+        uint32_t e = h4;
+        
+        uint32_t temp;
+        
+        for(uint32_t n = 0; n < 20; n++)
+        {
+            temp = leftrotate(a, 5) + ((b & c) | ((~b) & d)) + e + w[n] + 0x5A827999;
+            e = d;
+            d = c;
+            c = leftrotate(b, 30);
+            b = a;
+            a = temp;
+        }
+        
+        for(uint32_t n = 20; n < 40; n++)
+        {
+            temp = leftrotate(a,5) + (b ^ c ^ d) + e + w[n] + 0x6ED9EBA1;
+            e = d;
+            d = c;
+            c = leftrotate(b,30);
+            b = a;
+            a = temp;
+        }
+        
+        for(uint32_t n = 40; n < 60; n++)
+        {
+            temp = leftrotate(a,5) + ((b & c) | (b & d) | (c & d)) + e + w[n] + 0x8F1BBCDC;
+            e = d;
+            d = c;
+            c = leftrotate(b,30);
+            b = a;
+            a = temp;
+        }
+        
+        for(uint32_t n = 60; n < 80; n++)
+        {
+            temp = leftrotate(a,5) + (b ^ c ^ d) + e + w[n] + 0xCA62C1D6;
+            e = d;
+            d = c;
+            c = leftrotate(b,30);
+            b = a;
+            a = temp;
+        }
+        
+        h0 = h0 + a;
+        h1 = h1 + b;
+        h2 = h2 + c;
+        h3 = h3 + d;
+        h4 = h4 + e;
+        
+        
+    }
     
+    printf("%x%x%x%x%x\n",h0,h1,h2,h3,h4);
+    printf("done\n");
     
     
     
@@ -218,6 +316,7 @@ void SHA_1_hash(char *message)
 
 // SHA-1 hash:
 // https://en.wikipedia.org/wiki/SHA-1
+// more info: https://www.ipa.go.jp/security/rfc/RFC3174EN.html
 
 //  Note 1: All variables are unsigned 32-bit quantities and wrap modulo 2^32 when calculating, except for
 //  ml, the message length, which is a 64-bit quantity, and
@@ -328,8 +427,13 @@ void convert_WPA_to_PSK(char *password, char *SSID, uint8_t *output)
 
 void EAPOL_test()
 {
-    char test_hash[] = "helloworld";
-    SHA_1_hash(test_hash);
+    char test_hash[] = "The quick brown fox jumps over the lazy dog";
+    // should get: 2fd4e1c67a2d28fced849ee1bb76e7391b93eb12
+    char test_hash2[] = "abc";
+    // should get: a9993e36 4706816a ba3e2571 7850c26c 9cd0d89d
+    char test_hash3[] = "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu";
+    // should get: a49b2446 a02c645b f419f995 b6709125 3a04a259
+    SHA_1_hash(test_hash3);
     while(1);
     
     char pw[] = "password";
