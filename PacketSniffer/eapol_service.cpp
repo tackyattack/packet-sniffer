@@ -422,6 +422,7 @@ void HMAC(char *input_key, char *intput_message)
         i_key_pad[i] = key[i] ^ 0x36;
     }
     
+    
     char output[40] = {0};
 }
 
