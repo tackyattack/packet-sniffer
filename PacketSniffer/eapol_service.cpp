@@ -333,7 +333,7 @@ void SHA_1_hash(char *message)
 //  h4 = 0xC3D2E1F0
 //
 //  ml = message length in bits (always a multiple of the number of bits in a character).
-//-
+//
 //  Pre-processing:
 //  1. append the bit '1' to the message e.g. by adding 0x80 if message length is a multiple of 8 bits.
 //  2. append 0 ≤ k < 512 bits '0', such that the resulting message length in bits
