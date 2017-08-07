@@ -389,6 +389,7 @@ void SHA_1_hash(char *message, char *output)
     printf("%x%x%x%x%x\n",h0,h1,h2,h3,h4);
     printf("done\n");
     
+    
     free(message_container);
 }
 
