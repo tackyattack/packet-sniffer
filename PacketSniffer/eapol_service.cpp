@@ -403,10 +403,20 @@ void HMAC(char *input_key, char *input_message)
     
     const uint16_t blocksize = 64;
     
-    //char key[blocksize] = {0};
-    //char *key = (char *)malloc(sizeof(char)*(strlen(input_key) + 20));
-    char key[64] = {0};
-    strcpy(key, input_key);
+    uint32_t key_size;
+    if(strlen(input_key)+1 < 64)
+    { // make sure it's big enough to pad with zeros
+        key_size = 64;
+    }
+    else
+    {
+        key_size = uint32_t(strlen(input_key) + 1);
+    }
+    char *key = (char *)malloc(sizeof(char)*key_size);
+    for(uint32_t i = 0; i < key_size; i ++)
+    {
+        key[i] = input_key[i]; // copy
+    }
     
     char buf[40]; // capture the hex
     
@@ -461,7 +471,7 @@ void HMAC(char *input_key, char *input_message)
     char o_xor_out[20] = {0};
     SHA_1_hash(o_xor, buf, o_xor_out, 64 + 20);
     
-    //free(key);
+    free(key);
     free(i_xor);
     
     while(1);
