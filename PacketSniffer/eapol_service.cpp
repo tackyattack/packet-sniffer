@@ -219,7 +219,7 @@ uint32_t leftrotate(uint32_t input, uint32_t cnt)
 }
 
 // output should be able to contain the 40 character hex string (160 bits, 4 bits per hex char)
-void SHA_1_hash(const char *message, char *output)
+void SHA_1_hash(const char *message, char *output_char, char *output_byte , uint32_t byte_length)
 {
     
     uint32_t h0 = 0x67452301;
@@ -228,7 +228,8 @@ void SHA_1_hash(const char *message, char *output)
     uint32_t h3 = 0x10325476;
     uint32_t h4 = 0xC3D2E1F0;
     
-    uint32_t ml = (uint32_t)strlen(message)*8;
+    //uint32_t ml = (uint32_t)strlen(message)*8;
+    uint32_t ml = byte_length*8;
     
     uint32_t message_bit_len = ml + 1 + 64; // adding the '1' bit and 64 bit message length variable
     uint32_t message_block_cnt = ceil(message_bit_len / 512.0);
@@ -382,9 +383,11 @@ void SHA_1_hash(const char *message, char *output)
     for(uint16_t i = 0; i < 40;)
     {
         byte_to_hex_str(hex_holder[i/2], hex_char);
-        output[i++] = hex_char[0];
-        output[i++] = hex_char[1];
+        output_char[i++] = hex_char[0];
+        output_char[i++] = hex_char[1];
     }
+    
+    memcpy(output_byte, hex_holder, 20);
     
     printf("%x%x%x%x%x\n",h0,h1,h2,h3,h4);
     printf("done\n");
@@ -393,56 +396,98 @@ void SHA_1_hash(const char *message, char *output)
     free(message_container);
 }
 
+// HMAC: https://tools.ietf.org/html/rfc2104
 void HMAC(char *input_key, char *input_message)
 {
+    // if it's not working, could be dynamic memory
+    
     const uint16_t blocksize = 64;
     
-    char key[blocksize] = {0};
+    //char key[blocksize] = {0};
+    //char *key = (char *)malloc(sizeof(char)*(strlen(input_key) + 20));
+    char key[64] = {0};
     strcpy(key, input_key);
+    
+    char buf[40]; // capture the hex
     
     if(strlen(key) > blocksize)
     { // is the original key greater than the block size?
-        SHA_1_hash(input_key, key); // hash the key to make it shorter
+        SHA_1_hash(input_key, buf, key,(uint32_t)strlen(input_key)); // hash the key to make it shorter
     }
     
     if(strlen(key) < blocksize)
     { // pad with zeros if the key is now less than the block size
         for(uint16_t i = strlen(key); i < blocksize; i++)
         { // k e y e x a m p l e \0
-            key[i] = '0';
+            key[i] = 0x00;
         }
     }
     
     char o_key_pad[blocksize] = {0};
     char i_key_pad[blocksize] = {0};
     
+    char o_xor[20 + 64] = {0};
+    char *i_xor = (char *)malloc(sizeof(char)*(64+strlen(input_message)));
+    //char o_xor[1000] = {0};
+    //char i_xor[1000] = {0};
+    
     for(uint16_t i = 0; i < blocksize; i++)
     {
-        o_key_pad[i] = key[i] ^ 0x5c;
-        i_key_pad[i] = key[i] ^ 0x36;
+        o_key_pad[i] = 0x5c;
+        i_key_pad[i] = 0x36;
     }
     
-    uint16_t inner_hash_size = strlen(i_key_pad) + strlen(input_message);
-    char *inner_hash = (char *)malloc(sizeof(char)*inner_hash_size);
-    strcpy(inner_hash, i_key_pad);
-    strcat(inner_hash, input_message);
-    char inner_hash_output[40] = {0};
-    SHA_1_hash(inner_hash, inner_hash_output);
+    for(uint16_t i = 0; i < 64; i++)
+    {
+        i_xor[i] = key[i] ^ i_key_pad[i];
+    }
+    for(uint16_t i = 0; i < strlen(input_message); i++)
+    {
+        i_xor[i+64] = input_message[i];
+    }
+    char i_xor_out[20] = {0};
+    SHA_1_hash(i_xor, buf, i_xor_out, (uint32_t)(64 + strlen(input_message)));
     
-    uint16_t outer_hash_size = strlen(o_key_pad) + strlen(inner_hash);
-    char *outer_hash = (char *)malloc(sizeof(char)*outer_hash_size);
-    strcpy(outer_hash, o_key_pad);
-    strcat(outer_hash, inner_hash);
-    char outer_hash_output[40] = {0};
-    SHA_1_hash(outer_hash, outer_hash_output);
+    for(uint16_t i = 0; i < 64; i++)
+    {
+        o_xor[i] = key[i] ^ o_key_pad[i];
+    }
+    
+    for(uint16_t i = 0; i < 20; i++)
+    { // append SHA1 output
+        o_xor[i+64] = i_xor_out[i];
+    }
+    
+    char o_xor_out[20] = {0};
+    SHA_1_hash(o_xor, buf, o_xor_out, 64 + 20);
+    
+    //free(key);
+    free(i_xor);
+    
+    while(1);
     
     
-    char output[40] = {0};
-    
-    strcpy(output, outer_hash_output);
-    
-    free(inner_hash);
-    free(outer_hash);
+//    uint16_t inner_hash_size = strlen(i_key_pad) + strlen(input_message);
+//    char *inner_hash = (char *)malloc(sizeof(char)*inner_hash_size);
+//    strcpy(inner_hash, i_key_pad);
+//    strcat(inner_hash, input_message);
+//    char inner_hash_output[40] = {0};
+//    SHA_1_hash(inner_hash, buf, inner_hash_output);
+//    
+//    uint16_t outer_hash_size = strlen(o_key_pad) + strlen(inner_hash);
+//    char *outer_hash = (char *)malloc(sizeof(char)*outer_hash_size);
+//    strcpy(outer_hash, o_key_pad);
+//    strcat(outer_hash, inner_hash);
+//    char outer_hash_output[40] = {0};
+//    SHA_1_hash(outer_hash, buf, outer_hash_output);
+//    
+//    
+//    char output[40] = {0};
+//    
+//    strcpy(output, outer_hash_output);
+//    
+//    free(inner_hash);
+//    free(outer_hash);
 }
 
 //function hmac (key, message) {
@@ -592,8 +637,8 @@ void EAPOL_test()
     // should get: a49b2446 a02c645b f419f995 b6709125 3a04a259
     
     char output[40] = {0};
-    
-    SHA_1_hash(test_hash, output);
+    char output_bytes[20] = {0};
+    SHA_1_hash(test_hash, output, output_bytes, strlen(test_hash));
     while(1);
     
     char pw[] = "password";
