@@ -648,6 +648,7 @@ void xor_str(char *strA, char *strB, char *output, uint16_t length)
 // B = input
 // loop()
 // {
+//    A = hash(B)
 //    B = A
 //    if(first time around)
 //    {
