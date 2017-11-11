@@ -110,13 +110,13 @@ void update_test_status(const char *test_name, uint8_t passfail)
 void btest_add_report(const char *test_name, char *filename, char *failed_input, uint16_t line)
 {
     R_node report;
-    report.test_name = (char *)malloc((uint8_t)strlen(test_name));
+    report.test_name = (char *)malloc((uint8_t)strlen(test_name)+1);
     strcpy(report.test_name, test_name);
     char fail_line[200] = {0};
     get_file_line(filename, line, fail_line, 200);
-    report.failed_line_string = (char *)malloc((uint8_t)strlen(fail_line));
+    report.failed_line_string = (char *)malloc((uint8_t)strlen(fail_line)+1);
     strcpy(report.failed_line_string, fail_line);
-    report.failed_input = (char *)malloc((uint8_t)strlen(failed_input));
+    report.failed_input = (char *)malloc((uint8_t)strlen(failed_input)+1);
     strcpy(report.failed_input, failed_input);
     report.line_number = line;
     
@@ -131,7 +131,7 @@ void expect_equal_str(char *x, char *y, uint16_t size, const char *test_name, ch
     {
         
     }
-    if(i < (size-1))
+    if(i < (size))
     {
         passfail = 0;
     }
@@ -145,8 +145,7 @@ void expect_equal_str(char *x, char *y, uint16_t size, const char *test_name, ch
     {
         printf("-> %s: EXPECT EQUAL STR FAILED\n", test_name);
         update_test_status(test_name, 0);
-        
-        uint8_t sz = sizeof("EXPECT_EQ_STR(,)") + sizeof(x) + sizeof(y) + 1;
+        uint8_t sz = sizeof("EXPECT_EQ_STR(,)") + strlen(x) + strlen(y) + 1;
         char *failed_input = (char *)malloc(sz);
         sprintf(failed_input, "EXPECT_EQ_INT(%s,%s)", x,y);
         
