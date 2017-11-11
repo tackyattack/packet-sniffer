@@ -13,6 +13,7 @@
 #include <string.h>
 #include <math.h>
 
+// todo: problem with test vectors seems to be coming from here since the bytes are correct (0a)
 void byte_to_hex_str(uint8_t input, char *output)
 {
     uint32_t decimalNumber,quotient;
