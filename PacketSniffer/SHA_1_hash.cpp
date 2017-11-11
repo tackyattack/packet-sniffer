@@ -6,6 +6,8 @@
 //  Copyright © 2017 Henry Bergin. All rights reserved.
 //
 
+// SHA_1_hash test vectors can be found at: https://www.di-mgt.com.au/sha_testvectors.html
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
