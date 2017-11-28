@@ -16,6 +16,9 @@
 // todo: problem with test vectors seems to be coming from here since the bytes are correct (0a)
 void byte_to_hex_str(uint8_t input, char *output)
 {
+    output[0] = '0';
+    output[1] = '0';
+    
     uint32_t decimalNumber,quotient;
     uint32_t i=0,temp;
     decimalNumber = input;
