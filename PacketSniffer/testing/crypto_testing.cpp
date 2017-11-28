@@ -11,9 +11,9 @@
 #include "SHA_1_hash.h"
 #include "btest.h"
 
-void clear_str(char *output)
+void clear_str(char *output, uint16_t sz)
 {
-    for(uint32_t i = 0; i < 40; i++)
+    for(uint32_t i = 0; i < sz; i++)
     {
         output[i] = 0;
     }
@@ -37,24 +37,28 @@ TEST(crypto, SHA_1_hash)
     const char test_vec_3[] = "a49b2446a02c645bf419f995b67091253a04a259";
     
     const char test_hash4[] = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
-    // should get: a49b2446 a02c645b f419f995 b6709125 3a04a259
-    const char test_vec_4[] = "a49b2446a02c645bf419f995b67091253a04a259";
+    // should get: 84983e44 1c3bd26e baae4aa1 f95129e5 e54670f1
+    const char test_vec_4[] = "84983e441c3bd26ebaae4aa1f95129e5e54670f1";
     
     SHA_1_hash(test_hash1, output, output_bytes, (uint32_t)strlen(test_hash1));
     EXPECT_EQ_STR(output, test_vec_1, strlen(test_vec_1));
-    clear_str(output);
+    EXPECT_EQ_INT((uint16_t)strlen(output), (uint16_t)strlen(test_vec_1));
+    clear_str(output, 40);
     
     SHA_1_hash(test_hash2, output, output_bytes, (uint32_t)strlen(test_hash2));
     EXPECT_EQ_STR(output, test_vec_2, strlen(test_hash2));
-    clear_str(output);
+    EXPECT_EQ_INT((uint16_t)strlen(output), (uint16_t)strlen(test_vec_2));
+    clear_str(output, 40);
     
     SHA_1_hash(test_hash3, output, output_bytes, (uint32_t)strlen(test_hash3));
     EXPECT_EQ_STR(output, test_vec_3, strlen(test_vec_3));
-    clear_str(output);
+    EXPECT_EQ_INT((uint16_t)strlen(output), (uint16_t)strlen(test_vec_3));
+    clear_str(output, 40);
     
     SHA_1_hash(test_hash4, output, output_bytes, (uint32_t)strlen(test_hash4));
     EXPECT_EQ_STR(output, test_vec_4, strlen(test_vec_4));
-    clear_str(output);
+    EXPECT_EQ_INT((uint16_t)strlen(output), (uint16_t)strlen(test_vec_4));
+    clear_str(output, 40);
     
     
 }
