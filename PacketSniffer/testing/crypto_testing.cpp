@@ -6,10 +6,11 @@
 //  Copyright © 2017 Henry Bergin. All rights reserved.
 //
 
+#include "btest.h"
 #include <stdio.h>
 #include <string.h>
 #include "SHA_1_hash.h"
-#include "btest.h"
+#include "HMAC.h"
 
 void clear_str(char *output, uint16_t sz)
 {
@@ -63,7 +64,39 @@ TEST(crypto, SHA_1_hash)
     
 }
 
+TEST(crypto, HMAC)
+{
+    const char test_vec_1_key[]     = "key";
+    const char test_vec_1_msg[]     = "The quick brown fox jumps over the lazy dog";
+    char test_vec_1_output[20] = {0};
+    test_vec_1_output[0] = 0xde;
+    test_vec_1_output[1] = 0x7c;
+    test_vec_1_output[2] = 0x9b;
+    test_vec_1_output[3] = 0x85;
+    test_vec_1_output[4] = 0xb8;
+    test_vec_1_output[5] = 0xb7;
+    test_vec_1_output[6] = 0x8a;
+    test_vec_1_output[7] = 0xa6;
+    test_vec_1_output[8] = 0xbc;
+    test_vec_1_output[9] = 0x8a;
+    test_vec_1_output[10] = 0x7a;
+    test_vec_1_output[11] = 0x36;
+    test_vec_1_output[12] = 0xf7;
+    test_vec_1_output[13] = 0x0a;
+    test_vec_1_output[14] = 0x90;
+    test_vec_1_output[15] = 0x70;
+    test_vec_1_output[16] = 0x1c;
+    test_vec_1_output[17] = 0x9d;
+    test_vec_1_output[18] = 0xb4;
+    test_vec_1_output[19] = 0xd9;
+    
+    char output[40] = {0};
+    HMAC(test_vec_1_key, test_vec_1_msg, output);
+    EXPECT_EQ_STR(output, test_vec_1_output, sizeof(test_vec_1_output));
+}
+
 void init_crypto_testing()
 {
     ADD_TEST(crypto, SHA_1_hash);
+    ADD_TEST(crypto, HMAC);
 }
