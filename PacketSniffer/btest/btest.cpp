@@ -147,7 +147,7 @@ void expect_equal_str(const char *x, const char *y, uint16_t size, const char *t
         update_test_status(test_name, 0);
         uint8_t sz = sizeof("EXPECT_EQ_STR(,)") + strlen(x) + strlen(y) + 1;
         char *failed_input = (char *)malloc(sz);
-        sprintf(failed_input, "EXPECT_EQ_INT(%s,%s)", x,y);
+        sprintf(failed_input, "EXPECT_EQ_STR(%s,%s)", x,y);
         
         btest_add_report(test_name, filename, failed_input, line);
         
