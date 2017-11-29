@@ -13,13 +13,6 @@
 // x||y means the x and y, except in code, where it sometimes is the short-circuiting Boolean
 // L (S, F, N) is bits F to F+N–1 of the bit string S starting from the left
 
-// In WPA-PSK, the PMK is the PSK
-// Page 3416 of IEEE 802.11-2016 gives a pass-phrase to PSK example. Annex J has test vectors.
-// PSK = PBKDF2(passPhrase, ssid, 4096, 256/8)
-// PBKDF2 is defined here: https://www.ietf.org/rfc/rfc2898.txt
-// http://jorisvr.nl/wpapsk.html gives a good overview
-
-
 #include "eapol_service.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -184,123 +177,12 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length)
     
 }
 
-//  hLen:    length in octets of pseudorandom function output, a positive integer
 
-// PBKDF2
-// https://www.ietf.org/rfc/rfc2898.txt
-
-
-// XOR a long string
-void xor_str(char *strA, char *strB, char *output, uint16_t length)
-{
-    for (uint16_t i = 0; i < length; i++)
-    {
-        output[i] = strA[i] ^ strB[i];
-    }
-}
-
-// function F
-
-//F (P, S, c, i) = U_1 \xor U_2 \xor ... \xor U_c
-//
-//where
-//
-//U_1 = PRF (P, S || INT (i)) ,
-//U_2 = PRF (P, U_1) ,
-//...
-//U_c = PRF (P, U_{c-1})
-
-// My algorithm:
-//
-// input = salt || INT(i)
-//
-// B = input
-// loop()
-// {
-//    A = hash(B)
-//    B = A
-//    if(first time around)
-//    {
-//       last_xor = A
-//    }
-//    else
-//    {
-//       last_xor = last_xor ^ A
-//     }
-// }
-// end result: last_xor is the xor sum
-
-
-void exclusive_or_sum(char *P, char *S, uint16_t c, uint16_t i)
-{
-    char U_1[20] = {0};
-    char U_2[20] = {0};
-    char U_last[20] = {0};
-    char U_o[20] = {0}; // xor result
-    char *S_cat = (char *)malloc(sizeof(char)*(strlen(S) + 4));
-    strcpy(S_cat, S);
-    uint16_t end_of_S_index = strlen(S_cat);
-    S_cat[end_of_S_index]   = 0x00;
-    S_cat[end_of_S_index+1] = 0x00;
-    S_cat[end_of_S_index+2] = (i & 0xff00) >> 8;
-    S_cat[end_of_S_index+3] = (i & 0x00ff);
-    HMAC(P, S_cat, U_1);
-    HMAC(P, U_1, U_2); // make sure strlen is working '\0'
-    memcpy(U_last, U_2, 20);
-    xor_str(U_1, U_2, U_o, 20);
-    for(uint16_t i = 0; i < c; i++)
-    {
-        HMAC(P, U_last, U_1);
-        xor_str(U_last, U_1, U_o, 20);
-    }
-}
-
-void PBKDF2(char *P, char *S, uint16_t c, uint16_t dkLen)
-{
-    const uint16_t hLen = 20;
-    
-    uint16_t l = ceil(1.0 * dkLen / hLen); // number of hLen-octet blocks
-    uint16_t r = dkLen - (l - 1)*hLen;   // r is the number of octets in the last block
-    // example: if l=2 and r=12, that means there'll be 40 octets, hLen (20) in the first block, r in the second (12)
-    //          which should come out to dkLen (32 in example)
-}
-
-void convert_WPA_to_PSK(char *password, char *SSID, uint8_t *output)
-{
-    PBKDF2(password, SSID, 4096, 256/8);
-}
 
 void EAPOL_test()
 {
-//    char hex[2] = {0};
-//    byte_to_hex_str(0x0f,hex);
-//    printf("%c%c",hex[0],hex[1]);
-//    printf("\n");
-//    while(1);
     
-    char pw[] = "password";
-    char ssid[] = "IEEE";
-    convert_WPA_to_PSK(pw, ssid, NULL);
-    
-    while(1);
-    
-    char key[] = "key";
-    char msg[] = "The quick brown fox jumps over the lazy dog";
-    //HMAC(key,msg);
-    
-    while(1);
-    
-    char test_hash[] = "The quick brown fox jumps over the lazy dog";
-    // should get: 2fd4e1c67a2d28fced849ee1bb76e7391b93eb12
-    char test_hash2[] = "abc";
-    // should get: a9993e36 4706816a ba3e2571 7850c26c 9cd0d89d
-    char test_hash3[] = "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu";
-    // should get: a49b2446 a02c645b f419f995 b6709125 3a04a259
-    
-    char output[40] = {0};
-    char output_bytes[20] = {0};
-    SHA_1_hash(test_hash, output, output_bytes, strlen(test_hash));
-    while(1);
+
 }
 
 
