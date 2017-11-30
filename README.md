@@ -1,1 +1,1 @@
-A packet sniffer for LAN that works on freeBSD
+A packet sniffer for LAN that works on Mac OSX.
