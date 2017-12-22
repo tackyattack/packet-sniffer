@@ -99,16 +99,13 @@ void exclusive_or_sum(char *P, char *S, uint16_t c, uint16_t i, char *output)
     uint8_t xx = strlen(S_cat);
     HMAC(P, strlen(P), S_cat, 8, U_x); // IEEE + 0001
     memcpy(U_last, U_x, 20);
+    memcpy(U_o, U_x, 20);
     uint16_t cnt = 1;
-    
-    // !!!! I think you have the algorithm wrong. Each U_x is used for itself
-    // in creating the new one. The XOR is completley separate and is not used
-    // to feed the next U_x.
-    
+
     for(uint16_t c_cnt = 0; c_cnt < (c-1); c_cnt++)
     { // check to see if all of this logic makes sense
         HMAC(P, strlen(P), U_last, sizeof(U_last), U_x);
-        xor_str(U_x, U_last, U_o, 20);
+        xor_str_self(U_o, U_x, 20);
         memcpy(U_last, U_x, 20);
         cnt++;
     }
