@@ -11,42 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "byte_util.h"
 
 // HMAC: https://tools.ietf.org/html/rfc2104
-
-void byte_to_hex_str_x(uint8_t input, char *output)
-{
-    output[0] = '0';
-    output[1] = '0';
-    
-    uint32_t decimalNumber,quotient;
-    uint32_t i=0,temp;
-    decimalNumber = input;
-    quotient = decimalNumber;
-    while(quotient!=0)
-    {
-        temp = quotient % 16;
-        //To convert integer into character
-        if( temp < 10)
-        {
-            temp = temp + 48; // 0-9
-        }
-        else
-        {
-            temp = temp + 87; // a-f
-        }
-        output[i++]= temp;
-        quotient = quotient / 16;
-    }
-    
-    // switch order
-    temp = output[0];
-    output[0] = output[1];
-    output[1] = temp;
-    
-    if(output[0] == 0) output[0] = '0';
-    if(output[1] == 0) output[1] = '0';
-}
 
 void HMAC(const char *input_key, uint16_t IK_len, const char *input_message, uint16_t IM_len, char *output)
 {
@@ -142,7 +109,7 @@ void HMAC_str(const char *input_key, const char *input_message, char *output)
     char hex_out[2];
     for(uint16_t i = 0; i < 40;)
     {
-        byte_to_hex_str_x(output_bytes[i/2], hex_out);
+        byte_to_hex_str(output_bytes[i/2], hex_out);
         output[i] = hex_out[0];
         i++;
         output[i] = hex_out[1];

@@ -45,7 +45,6 @@ void xor_str_self(char *strA, char *strB, uint16_t length)
     }
 }
 
-//"f4 2c 6f c5 2d f0ebef9ebb4b90b38a5f902e83fe1b135a70e23aed762e9710a12e"
 // http://anandam.name/pbkdf2/
 void exclusive_or_sum(char *P, char *S, uint16_t c, uint16_t i, char *output)
 {
@@ -106,7 +105,7 @@ void PBKDF2(char *P, char *S, uint16_t c, uint16_t dkLen, char *output)
     
     char hBlock[hLen] = {0};
     uint8_t cpy_len = 0;
-    //"f42c6fc52df0ebef9ebb4b90b38a5f902e83fe1b135a70e23aed762e9710a12e"
+
     for(uint16_t i = 0; i < l; i++)
     {
         exclusive_or_sum(P, S, c, i+1, hBlock);
