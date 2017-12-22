@@ -11,6 +11,7 @@
 #include <string.h>
 #include "SHA_1_hash.h"
 #include "HMAC.h"
+#include "WPA2_keying.h"
 
 void clear_str(char *output, uint16_t sz)
 {
@@ -91,12 +92,43 @@ TEST(crypto, HMAC)
     test_vec_1_output[19] = 0xd9;
     
     char output[40] = {0};
-    HMAC(test_vec_1_key, test_vec_1_msg, output);
+    HMAC(test_vec_1_key, strlen(test_vec_1_key), test_vec_1_msg, strlen(test_vec_1_msg), output);
     EXPECT_EQ_STR(output, test_vec_1_output, sizeof(test_vec_1_output));
+}
+
+TEST(crypto, HMAC_STR)
+{
+    const char test_vec_1_key[]     = "key";
+    const char test_vec_1_msg[]     = "The quick brown fox jumps over the lazy dog";
+    const char test_vec_1_output[]  = "de7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9";
+    
+    char output[41] = {0};
+    HMAC_str(test_vec_1_key, test_vec_1_msg, output);
+    EXPECT_EQ_STR(output, test_vec_1_output, strlen(output));
+}
+
+TEST(crypto, WPA2_PSK)
+{
+    char pw[] = "password";
+    char ssid[] = "IEEE";
+    // "f42c6fc52df0ebef9ebb4b90b38a5f902e83fe1b135a70e23aed762e9710a12e"
+    uint8_t test_vec_hex[] = {0xf4, 0x2c, 0x6f, 0xc5, 0x2d, 0xf0, 0xeb, 0xef, 0x9e, 0xbb,
+                              0x4b, 0x90, 0xb3, 0x8a, 0x5f, 0x90, 0x2e, 0x83, 0xfe, 0x1b, 0x13,
+                              0x5a, 0x70, 0xe2, 0x3a, 0xed, 0x76, 0x2e, 0x97, 0x10, 0xa1, 0x2e};
+    // DK (derived key) length is always 32 bytes for WPA2
+    char output[32] = {0};
+    convert_WPA_to_PSK(pw, ssid, output);
+    for(uint8_t i = 0; i < 32; i++)
+    {
+        EXPECT_EQ_INT(test_vec_hex[i], (uint8_t)output[i]);
+    }
+    
 }
 
 void init_crypto_testing()
 {
     ADD_TEST(crypto, SHA_1_hash);
     ADD_TEST(crypto, HMAC);
+    ADD_TEST(crypto, HMAC_STR);
+    ADD_TEST(crypto, WPA2_PSK);
 }
