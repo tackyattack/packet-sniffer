@@ -14,6 +14,6 @@
 #include "_types/_uint16_t.h"
 #include "_types/_uint8_t.h"
 
-void convert_WPA_to_PSK(char *password, char *SSID, uint8_t *output);
+void convert_WPA_to_PSK(char *password, char *SSID, char *output);
 
 #endif /* WPA2_keying_h */

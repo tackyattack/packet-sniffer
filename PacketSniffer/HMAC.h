@@ -14,6 +14,7 @@
 #include "_types/_uint16_t.h"
 #include "_types/_uint8_t.h"
 
-void HMAC(const char *input_key, const char *input_message, char *output);
+void HMAC(const char *input_key, uint16_t IK_len, const char *input_message, uint16_t IM_len, char *output);
+void HMAC_str(const char *input_key, const char *input_message, char *output);
 
 #endif /* HMAC_h */

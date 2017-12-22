@@ -14,9 +14,10 @@ int main(int argc, const char * argv[]) {
     // insert code here...
     std::cout << "Hello, World!\n";
     
+    start_unit_testing();
+    
     //start_sniffer();
     //start_monitor_sniffer();
-    start_unit_testing();
     
     return 0;
 }
