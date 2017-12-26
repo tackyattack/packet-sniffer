@@ -581,9 +581,9 @@ void process_80211(const u_char *buffer, uint16_t length)
     
     // radio tap + WLAN (actual 802.11 frame)
 
-    EAPOL_test();
+    //EAPOL_test();
     //testSecurity();
-    while(1);
+    //while(1);
     
     MAC_header_frame_t MAC_header;
     set_MAC_header(&MAC_header, buffer, length);

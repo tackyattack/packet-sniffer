@@ -10,7 +10,7 @@
 // 2. gives a temporal key mapped to a DA/SA MAC address pair (order doesn't matter, just that two MACs match)
 
 // 802.11 standard: math functions
-// x||y means the x and y, except in code, where it sometimes is the short-circuiting Boolean
+// x||y means the concat of x and y, except in code, where it sometimes is the short-circuiting Boolean
 // L (S, F, N) is bits F to F+N–1 of the bit string S starting from the left
 
 #include "eapol_service.h"
@@ -20,6 +20,18 @@
 #include <math.h>
 #include "SHA_1_hash.h"
 #include "HMAC.h"
+
+#define PROTOCOL_VERSION_SIZE       1
+#define PACKET_TYPE_SIZE            1
+#define PACKET_BODY_LENGTH_SIZE     2
+#define DESCRIPTOR_TYPE_SIZE        1
+#define KEY_INFO_SIZE               2
+#define KEY_LENGTH_SIZE             2
+#define KEY_REPLAY_COUNTER_SIZE     8
+#define KEY_NONCE_SIZE              32
+#define EAPOL_KEY_IV_SIZE           16
+#define KEY_RSC_SIZE                8
+#define RESERVED_SIZE               8
 
 struct key_info_t
 {
@@ -59,12 +71,12 @@ struct EAPOL_key_frame_t
     
     uint16_t key_length; // defines the length in octets of the pairwise temporal key
     
-    uint8_t key_replay_counter[8];
+    uint8_t key_replay_counter[KEY_REPLAY_COUNTER_SIZE];
 
-    uint8_t key_nonce[32]; // conveys the ANonce from the Authenticator and the SNonce from the Supplicant.
-    uint8_t eapol_key_IV[16]; // contains the IV used with the KEK
-    uint8_t key_RSC[8];
-    uint8_t reserved[8];
+    uint8_t key_nonce[KEY_NONCE_SIZE]; // conveys the ANonce from the Authenticator and the SNonce from the Supplicant.
+    uint8_t eapol_key_IV[EAPOL_KEY_IV_SIZE]; // contains the IV used with the KEK
+    uint8_t key_RSC[KEY_RSC_SIZE];
+    uint8_t reserved[RESERVED_SIZE];
     // --- not variable up until this point ---
     const u_char *key_MIC; // The length of this field depends on the negotiated AKM
     uint16_t key_data_length; // represents the length of the Key Data field in octets
@@ -88,17 +100,29 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length)
     // since the struct has a combination of different sizes
     // it is not packed, therefore you need to be careful
     // in making sure the memory is where you want it
-    key_frame.protocol_version = data_frame[0];
-    key_frame.packet_type = data_frame[1];
-    key_frame.packet_body_length = (data_frame[2] << 8) | data_frame[3];
-    key_frame.descriptor_type = data_frame[4];
-    memcpy(&(key_frame.key_info), &(data_frame[5]), 2);
-    key_frame.key_length = (data_frame[7] << 8) | data_frame[8];
-    memcpy(key_frame.key_replay_counter, &(data_frame[9]), 8);
-    memcpy(key_frame.key_nonce, &(data_frame[17]), 32);
-    memcpy(key_frame.eapol_key_IV, &(data_frame[49]), 16);
-    memcpy(key_frame.key_RSC, &(data_frame[65]), 8);
-    memcpy(key_frame.reserved, &(data_frame[73]), 8);
+    uint16_t data_pos = 0;
+    key_frame.protocol_version = data_frame[data_pos];
+    data_pos += PROTOCOL_VERSION_SIZE;
+    key_frame.packet_type = data_frame[data_pos];
+    data_pos += PACKET_TYPE_SIZE;
+    key_frame.packet_body_length = (data_frame[data_pos] << 8) | data_frame[data_pos+1];
+    data_pos += PACKET_BODY_LENGTH_SIZE;
+    key_frame.descriptor_type = data_frame[data_pos];
+    data_pos += DESCRIPTOR_TYPE_SIZE;
+    memcpy(&(key_frame.key_info), &(data_frame[data_pos]), KEY_INFO_SIZE);
+    data_pos += KEY_INFO_SIZE;
+    key_frame.key_length = (data_frame[data_pos] << 8) | data_frame[data_pos+1];
+    data_pos += KEY_LENGTH_SIZE;
+    memcpy(key_frame.key_replay_counter, &(data_frame[data_pos]), KEY_REPLAY_COUNTER_SIZE);
+    data_pos += KEY_REPLAY_COUNTER_SIZE;
+    memcpy(key_frame.key_nonce, &(data_frame[data_pos]), KEY_NONCE_SIZE);
+    data_pos += KEY_NONCE_SIZE;
+    memcpy(key_frame.eapol_key_IV, &(data_frame[data_pos]), EAPOL_KEY_IV_SIZE);
+    data_pos += EAPOL_KEY_IV_SIZE;
+    memcpy(key_frame.key_RSC, &(data_frame[data_pos]), KEY_RSC_SIZE);
+    data_pos += KEY_RSC_SIZE;
+    memcpy(key_frame.reserved, &(data_frame[data_pos]), RESERVED_SIZE);
+    data_pos += RESERVED_SIZE;
     
     uint8_t key_descriptor_version = key_frame.key_info.key_descriptor_version;
     uint8_t key_MIC_octet_length = 0;
@@ -119,13 +143,13 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length)
     const u_char *after_MIC_ptr;
     if(key_frame.key_info.key_MIC)
     { // has MIC
-        key_frame.key_MIC = data_frame + 81;
-        after_MIC_ptr = data_frame + 81 + key_MIC_octet_length;
+        key_frame.key_MIC = data_frame + data_pos;
+        after_MIC_ptr = data_frame + data_pos + key_MIC_octet_length;
     }
     else
     {
-        key_frame.key_MIC = data_frame + 81;
-        after_MIC_ptr = data_frame + 81 + key_MIC_octet_length;
+        key_frame.key_MIC = data_frame + data_pos;
+        after_MIC_ptr = data_frame + data_pos + key_MIC_octet_length;
     }
     
     memcpy(&(key_frame.key_data_length), after_MIC_ptr, 2);
@@ -176,7 +200,6 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length)
     }
     
 }
-
 
 
 void EAPOL_test()
