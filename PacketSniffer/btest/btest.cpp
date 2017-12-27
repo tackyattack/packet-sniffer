@@ -174,7 +174,7 @@ void expect_equal_int(uint32_t x, uint32_t y, const char *test_name, const char 
     }
 }
 
-void expect_true(uint8_t val, const char *test_name, char *filename, uint16_t line)
+void expect_true(uint8_t val, const char *test_name, const char *filename, uint16_t line)
 {
     if(val)
     {
