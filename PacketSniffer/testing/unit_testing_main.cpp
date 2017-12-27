@@ -10,9 +10,11 @@
 #include "unit_testing_main.h"
 #include "btest.h"
 #include "crypto_testing.h"
+#include "misc_testing.h"
 
 void start_unit_testing()
 {
     init_crypto_testing();
+    init_misc_testing();
     btest_start_testing();
 }
