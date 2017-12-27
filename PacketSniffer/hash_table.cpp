@@ -15,34 +15,19 @@
 
 #define SIZE 20
 
-
-
-uint16_t hash_table_size = 0;
-uint16_t (*hash_code)(void *key); // function pointer to the hash function
-                                  // since we're likley not going to have a
-                                  // hash table size above 0xffff, it's fine
-                                  // to cap it at that size. The function is
-                                  // to be implemented as a callback in the
-                                  // class that is using the hash function.
-
-bool (*hash_key_match)(void *key_A, void *key_B); // Callback to check if two keys match
-
-struct DataItem* hashArray;
-struct DataItem* item;
-
 // Setup hash by telling it where the array is that stores the values
 // and how big it is
-void hash_init(DataItem *hash_array_ptr, uint16_t hash_size,
+void hash_init(hash_table *table, DataItem *hash_array_ptr, uint16_t hash_size,
                uint16_t (*hash_code_callback)(void *key),
                bool (*hash_key_match_callback)(void *key_A, void *key_B))
 {
-    hash_table_size  = hash_size;
-    hashArray        = hash_array_ptr;
-    hash_code        = hash_code_callback;
-    hash_key_match   = hash_key_match_callback;
+    table->hash_table_size  = hash_size;
+    table->hashArray        = hash_array_ptr;
+    table->hash_code        = hash_code_callback;
+    table->hash_key_match   = hash_key_match_callback;
     for(uint16_t i = 0; i < hash_size; i++)
     {
-        hashArray[i].empty = true;
+        table->hashArray[i].empty = true;
     }
 }
 
@@ -51,17 +36,17 @@ int hashCode(int key) {
     return key % SIZE;
 }
 
-struct DataItem *hash_search(void *key)
+struct DataItem *hash_search(hash_table table, void *key)
 {
     //get the hash
-    uint16_t hashIndex = hash_code(key);
+    uint16_t hashIndex = table.hash_code(key);
     
     //move in array until an empty
-    while(!hashArray[hashIndex].empty)
+    while(!table.hashArray[hashIndex].empty)
     {
-        if(hash_key_match((hashArray[hashIndex].key), key))
+        if(table.hash_key_match((table.hashArray[hashIndex].key), key))
         {
-            return &(hashArray[hashIndex]);
+            return &(table.hashArray[hashIndex]);
         }
         
         //go to next cell
@@ -74,14 +59,14 @@ struct DataItem *hash_search(void *key)
     return NULL;
 }
 
-void hash_insert(void *key, uint16_t key_size, void *data, uint16_t data_size)
+void hash_insert(hash_table table, void *key, uint16_t key_size, void *data, uint16_t data_size)
 {
     
     //get the hash
-    uint16_t hashIndex = hash_code(key);
+    uint16_t hashIndex = table.hash_code(key);
     
     //move in array until an empty or deleted cell
-    while(!hashArray[hashIndex].empty)
+    while(!table.hashArray[hashIndex].empty)
     {
         //go to next cell
         ++hashIndex;
@@ -90,24 +75,24 @@ void hash_insert(void *key, uint16_t key_size, void *data, uint16_t data_size)
         hashIndex %= SIZE;
     }
     
-    memcpy((hashArray[hashIndex].key), key, key_size);
-    memcpy((hashArray[hashIndex].data), data, data_size);
-    hashArray[hashIndex].empty = false;
+    memcpy((table.hashArray[hashIndex].key), key, key_size);
+    memcpy((table.hashArray[hashIndex].data), data, data_size);
+    table.hashArray[hashIndex].empty = false;
 }
 
-struct DataItem* hash_delete_item(void *key)
+struct DataItem* hash_delete_item(hash_table table, void *key)
 {
     
     //get the hash
-    uint16_t hashIndex = hash_code(key);
+    uint16_t hashIndex = table.hash_code(key);
     
     //move in array until an empty
-    while(!hashArray[hashIndex].empty) {
+    while(!table.hashArray[hashIndex].empty) {
         
-        if(hash_key_match(hashArray[hashIndex].key, key))
+        if(table.hash_key_match(table.hashArray[hashIndex].key, key))
         {
             //mark the item as empty
-            hashArray[hashIndex].empty = true;
+            table.hashArray[hashIndex].empty = true;
         }
         
         //go to next cell

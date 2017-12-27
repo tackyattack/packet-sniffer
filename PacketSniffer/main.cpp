@@ -47,13 +47,14 @@ int main(int argc, const char * argv[]) {
         hashArray[i].key = &(items[i].key);
         hashArray[i].data = &(items[i].data);
     }
+    hash_table table;
     
-    hash_init(hashArray, 20, hash_code_callback, hash_key_match_callback);
+    hash_init(&table, hashArray, 20, hash_code_callback, hash_key_match_callback);
     
     uint16_t key1 = 10;
     char arr[] = "hello world";
-    hash_insert(&key1, sizeof(key1), &arr, sizeof(arr));
-    printf("%s\n",(char *)hash_search(&key1)->data);
+    hash_insert(table, &key1, sizeof(key1), &arr, sizeof(arr));
+    printf("%s\n",(char *)hash_search(table, &key1)->data);
     
     //start_unit_testing();
     
