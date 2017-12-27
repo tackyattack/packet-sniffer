@@ -13,6 +13,26 @@
 #include "_types/_uint16_t.h"
 #include "_types/_uint8_t.h"
 
+#define FRAME_CONTROL_SIZE 2
+#define DURATION_SIZE      2
+#define OCTET_ADDRESS_SIZE 6
+#define SEQ_SIZE           2
+#define QOS_SIZE           2
+#define HT_SIZE            4
+#define FCS_SIZE           4
+
+#define MAC_ADDR_TYPE_DESTINATION    1
+#define MAC_ADDR_TYPE_SOURCE         2
+#define MAC_ADDR_TYPE_BSSID          3
+#define MAC_ADDR_TYPE_RECEIVER       4
+#define MAC_ADDR_TYPE_TRANSMITTER    5
+#define MAC_ADDR_TYPE_NONE           6
+
+#define MAC_FRAME_TYPE_CONTROL       1
+#define MAC_FRAME_TYPE_MANAGEMENT    2
+#define MAC_FRAME_TYPE_DATA          3
+
+
 struct MAC_header_frame_control_t
 { // 2 bytes
     uint16_t fc_protocol_version:2;     // protocol version

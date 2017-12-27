@@ -21,9 +21,9 @@
 #include "SHA_1_hash.h"
 #include "HMAC.h"
 
-void process_handshake(EAPOL_key_frame_t key_frame);
+void process_handshake(EAPOL_key_frame_t key_frame, MAC_header_frame_t MAC_header);
 
-void process_EAPOL_frame(const u_char *data_frame, uint16_t length, MAC_header_address_t MAC_address)
+void process_EAPOL_frame(const u_char *data_frame, uint16_t length, MAC_header_frame_t MAC_header)
 {
     EAPOL_key_frame_t key_frame;
     
@@ -114,7 +114,7 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length, MAC_header_a
         else if(key_data.data_type > 2 && key_data.data_type < 10)
         {
             key_type = ENCRYPT_TYPE_AES_128_CMAC;
-            process_handshake(key_frame);
+            process_handshake(key_frame, MAC_header);
         }
         else if(key_data.data_type == 11)
         {
@@ -136,7 +136,7 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length, MAC_header_a
     
 }
 
-void process_handshake(EAPOL_key_frame_t key_frame)
+void process_handshake(EAPOL_key_frame_t key_frame, MAC_header_frame_t MAC_header)
 {
     if(!key_frame.key_info.secure)
     {   // secure implies keys are installed

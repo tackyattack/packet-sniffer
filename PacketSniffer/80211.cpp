@@ -35,25 +35,6 @@
 #include "eapol_service.h"
 
 
-#define FRAME_CONTROL_SIZE 2
-#define DURATION_SIZE      2
-#define OCTET_ADDRESS_SIZE 6
-#define SEQ_SIZE           2
-#define QOS_SIZE           2
-#define HT_SIZE            4
-#define FCS_SIZE           4
-
-#define MAC_ADDR_TYPE_DESTINATION    1
-#define MAC_ADDR_TYPE_SOURCE         2
-#define MAC_ADDR_TYPE_BSSID          3
-#define MAC_ADDR_TYPE_RECEIVER       4
-#define MAC_ADDR_TYPE_TRANSMITTER    5
-#define MAC_ADDR_TYPE_NONE           6
-
-#define MAC_FRAME_TYPE_CONTROL       1
-#define MAC_FRAME_TYPE_MANAGEMENT    2
-#define MAC_FRAME_TYPE_DATA          3
-
 char MAC_msg[100];
 
 
@@ -459,9 +440,9 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer, uint16_t le
 }
 
 // Data frame should always start after DA/SA/Length
-void process_MSDU(const u_char *data_frame, uint16_t length, MAC_header_address_t MAC_address)
+void process_MSDU(const u_char *data_frame, uint16_t length, MAC_header_frame_t MAC_header)
 { // pass on to LLC
-    process_LLC(data_frame, length, MAC_address);
+    process_LLC(data_frame, length, MAC_header);
 }
 
 void process_MPDU(MAC_header_frame_t frame)
@@ -514,7 +495,7 @@ void process_MPDU(MAC_header_frame_t frame)
     }
     else
     { // single MSDU
-        process_MSDU(MSDU_start, data_length, frame.address);
+        process_MSDU(MSDU_start, data_length, frame);
     }
     
 }

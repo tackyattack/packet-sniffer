@@ -36,6 +36,6 @@ struct LLC_PDU_SNAP
     uint16_t data_length;
 };
 
-void process_LLC(const u_char *frame_start, uint16_t data_length, MAC_header_address_t MAC_address);
+void process_LLC(const u_char *frame_start, uint16_t data_length, MAC_header_frame_t MAC_header);
 
 #endif /* LLC_h */

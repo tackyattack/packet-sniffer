@@ -92,7 +92,7 @@ struct key_data_t
     const u_char *data;
 };
 
-void process_EAPOL_frame(const u_char *data_frame, uint16_t length, MAC_header_address_t MAC_address);
+void process_EAPOL_frame(const u_char *data_frame, uint16_t length, MAC_header_frame_t MAC_header);
 
 void EAPOL_test();
 
