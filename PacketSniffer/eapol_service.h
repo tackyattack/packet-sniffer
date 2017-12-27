@@ -15,6 +15,8 @@
 #include "_types/_uint8_t.h"
 #include "80211.h"
 
+#define KEY_STORAGE_SIZE 64 // how many keys is this service allowed to store?
+
 #define ENCRYPT_TYPE_HMAC_SHA_1_128 1
 #define ENCRYPT_TYPE_AES_128_CMAC   2
 #define ENCRYPT_TYPE_HMAC_SHA_256   3
@@ -93,7 +95,5 @@ struct key_data_t
 };
 
 void process_EAPOL_frame(const u_char *data_frame, uint16_t length, MAC_header_frame_t MAC_header);
-
-void EAPOL_test();
 
 #endif /* eapol_service_h */

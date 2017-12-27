@@ -21,6 +21,16 @@
 #include "SHA_1_hash.h"
 #include "HMAC.h"
 
+//---- KEY ARRAY ----
+struct temporal_key_t
+{
+    uint8_t SA[6];
+    uint8_t DA[6];
+    uint8_t TK[32];
+};
+temporal_key_t key_array[KEY_STORAGE_SIZE];
+//-------------------
+
 void process_handshake(EAPOL_key_frame_t key_frame, MAC_header_frame_t MAC_header);
 
 void process_EAPOL_frame(const u_char *data_frame, uint16_t length, MAC_header_frame_t MAC_header)
@@ -138,6 +148,12 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length, MAC_header_f
 
 void process_handshake(EAPOL_key_frame_t key_frame, MAC_header_frame_t MAC_header)
 {
+    // Each key pair should just use the SA/DA. Either SA or DA should give
+    // back the temporal key since traffic either way will use the same one
+    
+    // To get the DA/SA, just walk through each type in the MAC_address type
+    // to find which one is the DA and SA
+    
     if(!key_frame.key_info.secure)
     {   // secure implies keys are installed
         // key not installed means it is message 1 or 2
@@ -156,11 +172,18 @@ void process_handshake(EAPOL_key_frame_t key_frame, MAC_header_frame_t MAC_heade
     
 }
 
-void EAPOL_test()
+void add_key_to_table(temporal_key_t TK)
 {
+    static uint16_t key_array_index = 0;
     
-
+    key_array[key_array_index] = TK;
+    key_array_index++;
+    if(key_array_index >= KEY_STORAGE_SIZE)
+    {
+        key_array_index = 0; // loop back around (first in last out)
+    }
 }
+
 
 
 
