@@ -44,7 +44,7 @@ void send_LLC_UP(LLC_PDU LLC)
     printf("\n------LLC------\n");
 }
 
-void send_LLC_SNAP_UP(LLC_PDU_SNAP LLC)
+void send_LLC_SNAP_UP(LLC_PDU_SNAP LLC, MAC_header_address_t MAC_address)
 { // send the LLC up to the correct layer
     printf("\n------LLC SNAP------\n");
     uint16_t eth_type = LLC.ether_type[0] | ((LLC.ether_type[1]) << 8); // convert to 16 bit
@@ -53,7 +53,7 @@ void send_LLC_SNAP_UP(LLC_PDU_SNAP LLC)
     if(eth_type == 0x888E)
     { // 802.1X Auth
         printf("802.1X Auth\n");
-        process_EAPOL_frame(LLC.data_start, LLC.data_length);
+        process_EAPOL_frame(LLC.data_start, LLC.data_length, MAC_address);
         
     }
     else if (eth_type == 0x0800)
@@ -63,7 +63,7 @@ void send_LLC_SNAP_UP(LLC_PDU_SNAP LLC)
     
 }
 
-void process_LLC(const u_char *frame_start, uint16_t data_length)
+void process_LLC(const u_char *frame_start, uint16_t data_length, MAC_header_address_t MAC_address)
 {
     uint8_t LLC_type = 0;
     uint8_t LLC_control_size = 0;
@@ -123,7 +123,7 @@ void process_LLC(const u_char *frame_start, uint16_t data_length)
         
         LLC_SNAP.data_start = frame_start + DSAP_SIZE + SSAP_SIZE + LLC_control_size + ORG_SIZE + ETH_SIZE;
         LLC_SNAP.data_length = data_length - (DSAP_SIZE + SSAP_SIZE + LLC_control_size + ORG_SIZE + ETH_SIZE);
-        send_LLC_SNAP_UP(LLC_SNAP);
+        send_LLC_SNAP_UP(LLC_SNAP, MAC_address);
     }
     else if(LLC_type == LLC_TYPE_LLC)
     {

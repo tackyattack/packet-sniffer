@@ -21,78 +21,9 @@
 #include "SHA_1_hash.h"
 #include "HMAC.h"
 
-#define PROTOCOL_VERSION_SIZE       1
-#define PACKET_TYPE_SIZE            1
-#define PACKET_BODY_LENGTH_SIZE     2
-#define DESCRIPTOR_TYPE_SIZE        1
-#define KEY_INFO_SIZE               2
-#define KEY_LENGTH_SIZE             2
-#define KEY_REPLAY_COUNTER_SIZE     8
-#define KEY_NONCE_SIZE              32
-#define EAPOL_KEY_IV_SIZE           16
-#define KEY_RSC_SIZE                8
-#define RESERVED_SIZE               8
+void process_handshake(EAPOL_key_frame_t key_frame);
 
-struct key_info_t
-{
-    // -- OCTET MSB --
-    uint16_t key_MIC:1; // set to 1 if a MIC is in this EAPOL-Key frame and is set to 0 if this message contains no MIC
-    uint16_t secure:1;
-    uint16_t error:1;
-    uint16_t request:1;
-    uint16_t encrypted_key_data:1;
-    uint16_t SMK_message:1;
-    uint16_t reserved_B:2;
-    // --------------
-    
-    // --- OCTET LSB ---
-    uint16_t key_descriptor_version:3; // needed for knowing key MIC length
-    uint16_t key_type:1; // The value 0 (Group/SMK) indicates the message is not part of a PTK derivation.
-    // The value 1 (Pairwise) indicates the message is part of a PTK derivation.
-    uint16_t reserved_A:2;
-    uint16_t install:1;
-    uint16_t key_Ack:1;
-    //------------------
-};
-
-struct EAPOL_key_frame_t
-{
-    uint8_t protocol_version;
-    uint8_t packet_type;
-    uint16_t packet_body_length;
-    uint8_t descriptor_type;
-    
-    // octets are LSB right to left
-    // how it comes through: 00    08
-    //                       MSB   LSB
-    // so copy MSB first
-    
-    key_info_t key_info;
-    
-    uint16_t key_length; // defines the length in octets of the pairwise temporal key
-    
-    uint8_t key_replay_counter[KEY_REPLAY_COUNTER_SIZE];
-
-    uint8_t key_nonce[KEY_NONCE_SIZE]; // conveys the ANonce from the Authenticator and the SNonce from the Supplicant.
-    uint8_t eapol_key_IV[EAPOL_KEY_IV_SIZE]; // contains the IV used with the KEK
-    uint8_t key_RSC[KEY_RSC_SIZE];
-    uint8_t reserved[RESERVED_SIZE];
-    // --- not variable up until this point ---
-    const u_char *key_MIC; // The length of this field depends on the negotiated AKM
-    uint16_t key_data_length; // represents the length of the Key Data field in octets
-    const u_char *key_data;
-};
-
-struct key_data_t
-{
-    uint8_t type;
-    uint8_t length;
-    uint8_t OUI[3];
-    uint8_t data_type;
-    const u_char *data;
-};
-
-void process_EAPOL_frame(const u_char *data_frame, uint16_t length)
+void process_EAPOL_frame(const u_char *data_frame, uint16_t length, MAC_header_address_t MAC_address)
 {
     EAPOL_key_frame_t key_frame;
     
@@ -127,17 +58,20 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length)
     uint8_t key_descriptor_version = key_frame.key_info.key_descriptor_version;
     uint8_t key_MIC_octet_length = 0;
     
-    if(key_descriptor_version == 1)
+    switch (key_descriptor_version)
     {
-        key_MIC_octet_length = 16;
-    }
-    else if(key_descriptor_version == 2)
-    {
-        key_MIC_octet_length = 16;
-    }
-    else if(key_descriptor_version == 3)
-    {
-        key_MIC_octet_length = 16;
+        case 1:
+            key_MIC_octet_length = 16;
+            break;
+        case 2:
+            key_MIC_octet_length = 16;
+            break;
+        case 3:
+            key_MIC_octet_length = 16;
+            break;
+            
+        default:
+            break;
     }
     
     const u_char *after_MIC_ptr;
@@ -180,6 +114,7 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length)
         else if(key_data.data_type > 2 && key_data.data_type < 10)
         {
             key_type = ENCRYPT_TYPE_AES_128_CMAC;
+            process_handshake(key_frame);
         }
         else if(key_data.data_type == 11)
         {
@@ -201,6 +136,25 @@ void process_EAPOL_frame(const u_char *data_frame, uint16_t length)
     
 }
 
+void process_handshake(EAPOL_key_frame_t key_frame)
+{
+    if(!key_frame.key_info.secure)
+    {   // secure implies keys are installed
+        // key not installed means it is message 1 or 2
+        
+        if(key_frame.key_info.key_MIC)
+        {
+            // Message 2 has a MIC, message 1 does not
+        }
+        else
+        {
+            // No MIC, therefore message 1
+        }
+        
+    }
+    
+    
+}
 
 void EAPOL_test()
 {

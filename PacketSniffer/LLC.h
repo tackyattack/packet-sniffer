@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include "_types/_uint16_t.h"
 #include "_types/_uint8_t.h"
+#include "80211.h"
 
 struct LLC_PDU
 {
@@ -35,6 +36,6 @@ struct LLC_PDU_SNAP
     uint16_t data_length;
 };
 
-void process_LLC(const u_char *frame_start, uint16_t data_length);
+void process_LLC(const u_char *frame_start, uint16_t data_length, MAC_header_address_t MAC_address);
 
 #endif /* LLC_h */

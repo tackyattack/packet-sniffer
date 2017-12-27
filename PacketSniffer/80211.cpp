@@ -459,9 +459,9 @@ void set_MAC_header(MAC_header_frame_t *frame, const u_char *buffer, uint16_t le
 }
 
 // Data frame should always start after DA/SA/Length
-void process_MSDU(const u_char *data_frame, uint16_t length)
+void process_MSDU(const u_char *data_frame, uint16_t length, MAC_header_address_t MAC_address)
 { // pass on to LLC
-    process_LLC(data_frame, length);
+    process_LLC(data_frame, length, MAC_address);
 }
 
 void process_MPDU(MAC_header_frame_t frame)
@@ -514,7 +514,7 @@ void process_MPDU(MAC_header_frame_t frame)
     }
     else
     { // single MSDU
-        process_MSDU(MSDU_start, data_length);
+        process_MSDU(MSDU_start, data_length, frame.address);
     }
     
 }

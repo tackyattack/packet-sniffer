@@ -13,6 +13,7 @@
 #include "_types/_uint32_t.h"
 #include "_types/_uint16_t.h"
 #include "_types/_uint8_t.h"
+#include "80211.h"
 
 #define ENCRYPT_TYPE_HMAC_SHA_1_128 1
 #define ENCRYPT_TYPE_AES_128_CMAC   2
@@ -91,7 +92,7 @@ struct key_data_t
     const u_char *data;
 };
 
-void process_EAPOL_frame(const u_char *data_frame, uint16_t length);
+void process_EAPOL_frame(const u_char *data_frame, uint16_t length, MAC_header_address_t MAC_address);
 
 void EAPOL_test();
 
